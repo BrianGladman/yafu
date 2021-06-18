@@ -106,6 +106,9 @@ void check_poly(snfs_t *poly, int VFLAG)
 	int i;
 	mpz_init(t);
 
+    if (VFLAG > 0)
+        printf("nfs: checking degree %d poly\n", poly->poly->alg.degree);
+
 	poly->valid = 1;
 	mpz_set_ui(t, 0);
 	for (i = poly->poly->alg.degree; i >= 0; i--)
@@ -195,7 +198,13 @@ void print_snfs(snfs_t *poly, FILE *out)
 			poly->base1, poly->exp1, poly->base2, poly->exp2, poly->difficulty,
 			poly->anorm, poly->rnorm);
 	}
-	else
+    else if (poly->form_type == SNFS_DIRECT)
+    {
+        gmp_fprintf(out, "# m=%Zd^%d, difficulty: %1.2f, anorm: %1.2e, rnorm: %1.2e\n",
+            poly->base1, poly->exp1, poly->difficulty,
+            poly->anorm, poly->rnorm);
+    }
+	else if (poly->form_type == SNFS_BRENT)
 	{
 		if (poly->coeff1 == 1)
 			gmp_fprintf(out, "# %Zd^%d%c%d, difficulty: %1.2f, anorm: %1.2e, rnorm: %1.2e\n", 
@@ -206,6 +215,11 @@ void print_snfs(snfs_t *poly, FILE *out)
 				abs(poly->coeff1), poly->base1, poly->exp1, c, abs(poly->coeff2), poly->difficulty,
 				poly->anorm, poly->rnorm);
 	}
+    else
+    {
+        gmp_fprintf(out, "# difficulty: %1.2f, anorm: %1.2e, rnorm: %1.2e\n",
+            poly->difficulty, poly->anorm, poly->rnorm);
+    }
 
 	if (poly->sdifficulty > 0)
 		fprintf(out, "# scaled difficulty: %1.2f, suggest sieving %s side\n", poly->sdifficulty, side);
@@ -215,9 +229,11 @@ void print_snfs(snfs_t *poly, FILE *out)
 		fprintf(out, "# siever: %u\n", poly->siever);
 
 	// msieve "analyze_one_poly" output, if known
-	if (poly->poly->size > 0)
-		fprintf(out, "# size = %1.3e, alpha = %1.3f, combined = %1.3e, rroots = %d\n", 
-		poly->poly->size, poly->poly->alpha, poly->poly->murphy, poly->poly->rroots);
+    if (poly->poly->size > 0)
+    {
+        fprintf(out, "# size = %1.3e, alpha = %1.3f, combined = %1.3e, rroots = %d\n",
+            poly->poly->size, poly->poly->alpha, poly->poly->murphy, poly->poly->rroots);
+    }
 
 	fprintf(out, "type: snfs\nsize: %d\n", d);
 
@@ -276,7 +292,7 @@ void approx_norms(snfs_t *poly)
     //a = sqrt(poly->poly->skew) * 1000000.;
 	//b = 1000000. / (sqrt(poly->poly->skew));
 
-    //printf("a = %lf, b = %lf\n", a, b);
+    //printf("skew = %lf, a = %lf, b = %lf\n", poly->poly->skew, a, b);
 
 	mpz_init(tmp);
 	mpz_init(res);
@@ -284,11 +300,21 @@ void approx_norms(snfs_t *poly)
 	// use msieve functions to compute the norm size on each side.
 	// these are used to skew the polynomial parameters, if the norms
 	// are disparate enough
-	eval_poly(res, (int64_t)a, (int64_t)b, &poly->poly->alg);
+    //printf("alg degree: %d\n", poly->poly->alg.degree);
+    //for (i = 0; i < 9; i++)
+    //    gmp_printf("%Zd\n", poly->poly->alg.coeff[i]);
+
+    //printf("rat degree: %d\n", poly->poly->rat.degree);
+    //for (i = 0; i < 9; i++)
+    //    gmp_printf("%Zd\n", poly->poly->rat.coeff[i]);
+
+	eval_poly(res, (int64_t)a, (uint32_t)b, &poly->poly->alg);
 	poly->anorm = mpz_get_d(res);
 
-	eval_poly(res, (int64_t)a, (int64_t)b, &poly->poly->rat);
+	eval_poly(res, (int64_t)a, (uint32_t)b, &poly->poly->rat);
 	poly->rnorm = mpz_get_d(res);
+
+    //printf("anorm = %le, bnorm = %le\n", poly->anorm, poly->rnorm);
 
 	// extract from msieve (in a convoluted way) the Murphy score of the polynomial
 	// along with several other values.  This will be used to rank the polynomials generated.
@@ -340,8 +366,11 @@ void skew_snfs_params(fact_obj_t *fobj, nfs_job_t *job)
 		}
 
 		// this *should* just change min_rels based on the new lpbr/a value
-		if (oom_skew >= 4)
-			get_ggnfs_params(fobj, job);
+        if (oom_skew >= 4)
+        {
+            //get_ggnfs_params(fobj, job);
+            nfs_set_min_rels(job);
+        }
 
 	}
 	else
@@ -373,8 +402,11 @@ void skew_snfs_params(fact_obj_t *fobj, nfs_job_t *job)
 		}
 
 		// this *should* just change min_rels based on the new lpbr/a value
-		if (oom_skew >= 4)
-			get_ggnfs_params(fobj, job);
+        if (oom_skew >= 4)
+        {
+            //get_ggnfs_params(fobj, job);
+            nfs_set_min_rels(job);
+        }
 	}
 
 	return;
@@ -497,6 +529,8 @@ void find_brent_form(fact_obj_t *fobj, snfs_t *form)
 					}
 				}
 
+				//printf("c1 = %d, i = %d, j = %d, c2 = %d\n", c1, i, j, c2);
+
 				if ((c1 == 1) && (c2 == 1) && (sign == NEGATIVE) && (j % 2) == 0)
 					j /= 2;
 
@@ -505,7 +539,7 @@ void find_brent_form(fact_obj_t *fobj, snfs_t *form)
 				mpz_set_ui(form->base1, i);
 				mpz_set_ui(form->base2, 1);
 				form->exp1 = j;
-				form->coeff2 = sign ? -c2 : c2;
+				form->coeff2 = sign ? c2 : -c2;
 				if (mpz_cmp_ui(fobj->nfs_obj.snfs_cofactor, 1) > 0)
 				{
                     if (fobj->LOGFLAG)
@@ -590,7 +624,7 @@ void find_brent_form(fact_obj_t *fobj, snfs_t *form)
 				mpz_set_ui(form->base1, i);
 				mpz_set_ui(form->base2, 1);
 				form->exp1 = j;
-				form->coeff2 = sign ? -c2 : c2;
+				form->coeff2 = sign ? c2 : -c2;
 				if (mpz_cmp_ui(fobj->nfs_obj.snfs_cofactor, 1) > 0)
 				{
                     if (fobj->LOGFLAG)
@@ -975,7 +1009,158 @@ done:
 	mpz_clear(yx);
 	mpz_clear(g);
 	mpz_clear(r);
+    mpz_clear(n);
 	return;
+}
+
+void find_direct_form(fact_obj_t* fobj, snfs_t* form)
+{
+    int b, p, found = 0, i, deg;
+    int c[7];
+    mpz_t t, r, g, n, m;
+
+    // find the following forms:
+    // c1*m^n + c2*m^(n-1) + c3*m^(n-2) ... + cn
+    // where c1...cn are all small, m=b^p, and nmax = 6.
+    // then c1...cn are the coefficients of the algebraic polynomial,
+    // Y1=-1, Y0=m is the rational polynomial, and n is the degree.
+    // we search b=2..12 and p such that m<10^75 or so.
+
+    mpz_init(t);
+    mpz_init(g);
+    mpz_init(r);
+    mpz_init(n);
+    mpz_init(m);
+
+    mpz_set(n, fobj->nfs_obj.gmp_n);
+    //mpz_set(n, fobj->N);
+
+    for (b = 19; b > 1; b--)
+    {
+        mpz_set_ui(m, b);
+
+        int maxp = 75 * (log(10) / log(b));
+
+        if (fobj->VFLAG > 1)
+            printf("nfs: checking m=%d^p forms, maxp = %d\n", b, maxp);
+
+        for (p = maxp; p > 1; p--)
+        {
+            mpz_set_ui(m, b);
+            mpz_pow_ui(m, m, p);
+
+            if (fobj->VFLAG > 1)
+                gmp_printf("checking m = %Zd = %d^%d\n", m, b, p);
+
+            // if the remainder of n by m is small, that is a coefficient.
+            // remove, reduce, and keep going until we either get a large
+            // coefficient or n > 6
+            mpz_set(t, n);
+            found = 1;
+            for (i = 0, deg = 0; i < 7; i++)
+            {
+                mpz_mod(r, t, m);
+                if (mpz_cmp_ui(r, 10000) < 1)
+                {
+                    deg = i;
+                    c[i] = mpz_get_ui(r);
+                    mpz_sub_ui(t, t, c[i]);
+                    mpz_tdiv_q(t, t, m);
+                }
+                else
+                {
+                    mpz_sub(r, m, r);
+                    if (mpz_cmp_ui(r, 10000) < 1)
+                    {
+                        deg = i;
+                        c[i] = -(int)mpz_get_ui(r);
+                        mpz_add_ui(t, t, -c[i]);
+                        mpz_tdiv_q(t, t, m);
+                    }
+                    else
+                    {
+                        found = 0;
+                        break;
+                    }
+                }
+            }
+
+            // our test mpz 't' must now be 0 for the input to be represented by any
+            // small-coefficient form we may have found.
+            if (mpz_cmp_ui(t, 0) > 0)
+            {
+                found = 0;
+            }
+
+            // also, insist that we have at least degree 4.
+            if (deg < 4)
+            {
+                found = 0;
+            }
+            
+            if (found)
+            {
+                char nstr[128];
+                char sign;
+                strcpy(nstr, "");
+
+                form->form_type = SNFS_DIRECT;
+                mpz_set_ui(form->base1, b);
+                form->exp1 = p;
+                for (i = 6; i >= 0; i--)
+                {
+                    mpz_set_si(form->c[i], c[i]);
+                }
+
+                if (fobj->VFLAG >= 0)
+                {
+                    printf("nfs: input divides ");
+                    for (i = 6; i > 0; i--)
+                    {                       
+                        if (abs(c[i]) > 0)
+                        {
+                            if (c[i] > 0) sign = '+'; else sign = '-';
+                            printf("%c%d*(%d^%d)^%d ", sign, abs(c[i]), b, p, i);
+                            sprintf(nstr, "%s%c%d*(%d^%d)^%d ", nstr, sign, abs(c[i]), b, p, i);
+                        }
+                    }
+                    if (c[i] > 0) sign = '+'; else sign = '-';
+                    printf("%c%d\n", sign, abs(c[i]));
+                    sprintf(nstr, "%s%c%d", nstr, sign, abs(c[i]));
+                }
+                logprint_oc(fobj->flogname, "a", "nfs: input divides %s\n", nstr);
+
+                if (mpz_cmp_ui(fobj->nfs_obj.snfs_cofactor, 1) > 0)
+                {
+                    if (fobj->LOGFLAG)
+                    {
+                        FILE* f = fopen(fobj->flogname, "a");
+                        if (f != NULL)
+                        {
+                            logprint(f, "nfs: using supplied cofactor: ");
+                            gmp_fprintf(f, "%Zd\n", fobj->nfs_obj.snfs_cofactor);
+                            fclose(f);
+                        }
+                    }
+                    mpz_set(form->n, fobj->nfs_obj.snfs_cofactor);
+                }
+                else
+                {
+                    mpz_set(form->n, n);
+                }
+                goto done;
+            }
+        }
+    }
+
+done:
+    mpz_clear(t);
+    mpz_clear(m);
+    mpz_clear(g);
+    mpz_clear(r);
+    mpz_clear(n);
+
+    return;
 }
 
 // see: http://home.earthlink.net/~elevensmooth/MathFAQ.html#PrimDistinct
@@ -1227,7 +1412,7 @@ snfs_t* gen_brent_poly(fact_obj_t *fobj, snfs_t *poly, int* npolys)
 	// is sub-optimal.  The possibility of simple algebraic reduction occurs only when the a,c 
 	// coefficients are 1.  More complex algebraic reductions like Aurifeuillian 
 	// factorizations are not attempted here.
-	if ((poly->coeff1 == 1) && (abs(poly->coeff2) == 1))
+	if ((poly->form_type != SNFS_DIRECT) && (poly->coeff1 == 1) && (abs(poly->coeff2) == 1))
 		find_primitive_factor(poly, fobj->primes, fobj->num_p, fobj->VFLAG);
 
     if (fobj->LOGFLAG)
@@ -1256,7 +1441,69 @@ snfs_t* gen_brent_poly(fact_obj_t *fobj, snfs_t *poly, int* npolys)
         }
     }
 
-	if ((poly->exp1 % 15 == 0) && (poly->coeff1 == 1) && (abs(poly->coeff2) == 1))
+    if (poly->form_type == SNFS_DIRECT)
+    {
+        // the poly form directly gives a poly.
+        int deg = 0;
+        double d;
+
+        mpz_set(m, poly->base1);
+        mpz_pow_ui(m, m, poly->exp1);
+
+        for (i = 6; i >= 0; i--)
+        {
+            if ((mpz_cmp_ui(poly->c[i],0) > 0) && (deg == 0))
+            {
+                deg = i;
+            }
+            mpz_set(poly->poly->alg.coeff[i], poly->c[i]);
+        }
+        d = mpz_get_d(m);
+        d = log10(d) * (double)deg;
+
+        // leading coefficient contributes to the difficulty
+        d += log10(mpz_get_d(poly->c[deg]));
+
+        // compute skew
+        skew = pow(fabs(mpz_get_d(poly->c[0])) / mpz_get_d(poly->c[deg]), 1. / (double)deg);
+
+        //printf("degree is %d\n", deg);
+        //printf("skew is %lf\n", skew);
+        //printf("difficulty is %lf\n", d);
+
+        poly->difficulty = d;
+        mpz_set(poly->poly->m, m);
+        poly->poly->skew = skew;
+        poly->poly->alg.degree = deg;
+
+        mpz_set_si(poly->poly->rat.coeff[1], -1);
+        mpz_set(poly->poly->rat.coeff[0], m);
+ 
+        algebraic = 0;
+
+        polys = (snfs_t*)malloc(sizeof(snfs_t));
+        snfs_init(polys);
+        npoly = 1;
+        snfs_copy_poly(poly, polys);		// copy algebraic form
+
+        if (fobj->VFLAG > 0)
+        {
+            printf("gen: ========================================================\n"
+                "gen: considering the following polynomials:\n"
+                "gen: ========================================================\n\n");
+        }
+        logprint_oc(fobj->nfs_obj.logfile, "a", "gen: considering the following polynomials:\n");
+
+        check_poly(&polys[0], fobj->VFLAG);
+        approx_norms(&polys[0]);
+
+        if (polys[0].valid)
+        {
+            if (fobj->VFLAG > 0) print_snfs(&polys[0], stdout);
+        }
+
+    }
+	else if ((poly->exp1 % 15 == 0) && (poly->coeff1 == 1) && (abs(poly->coeff2) == 1))
 	{
 		polys = (snfs_t *)malloc(sizeof(snfs_t));
 		snfs_init(polys);
@@ -2832,12 +3079,12 @@ snfs_t* gen_xyyxf_poly(fact_obj_t *fobj, snfs_t *poly, int* npolys)
 // to get  rels/q into the desired range (somewhere around 2-4 rels/q).
 // Therefore, pass in job structures to be modified rather than using throwaway
 // objects during the test sieving.
-nfs_job_t* snfs_test_sieve(fact_obj_t *fobj, snfs_t *polys, int npoly, nfs_job_t* jobs)
+nfs_job_t* snfs_test_sieve(fact_obj_t *fobj, snfs_t *polys, int npoly, nfs_job_t* jobs, int force_test)
 {
 	int i, dotest, minscore_id;	
 
 	// only one poly - don't bother test sieving it :)
-	if (npoly < 2)
+	if ((npoly < 2) && (!force_test))
 		return &jobs[0];
 
 	// see if any poly is big enough to justify test sieving

@@ -279,6 +279,8 @@ int test_sieve(fact_obj_t* fobj, void* args, int njobs, int are_files)
 			// be conservative about estimates
 		}
 
+		jobs[i].test_score = score[i];
+
         if (fobj->LOGFLAG)
         {
             flog = fopen(fobj->flogname, "a");
@@ -610,6 +612,8 @@ void do_sieving(fact_obj_t *fobj, nfs_job_t *job)
 
 		savefile_concat("rels.add",fobj->nfs_obj.outputfile,fobj->nfs_obj.mobj);
 		remove("rels.add");
+
+        job->current_rels += count;
 	}
 
 	//stop worker threads

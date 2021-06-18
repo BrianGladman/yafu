@@ -84,7 +84,12 @@ enum param_flag_e
     PARAM_FLAG_ALAMBDA = 0x80,
     PARAM_FLAG_LAMBDA = 0x40 + 0x80,
 
-    PARAM_FLAG_ALL = 0xFF
+    PARAM_FLAG_IMPROVED_SKEW = 0x100,
+    PARAM_FLAG_INFO1 = 0x200, 
+    PARAM_FLAG_INFO2 = 0x400,
+    PARAM_FLAG_INFO3 = 0x800,
+
+    PARAM_FLAG_ALL = 0xFFF
 };
 
 typedef struct
@@ -102,6 +107,7 @@ typedef struct
     uint32_t poly_time;
     uint32_t last_leading_coeff;
     uint32_t use_max_rels;
+    double test_score;      // used to remember score if test-sieved.
 
     snfs_t* snfs; // NULL if GNFS
 } nfs_job_t;
@@ -154,7 +160,7 @@ void* polyfind_launcher(void* ptr);
 double find_best_msieve_poly(fact_obj_t* fobj, nfs_job_t* job, int write_jobfile);
 void msieve_to_ggnfs(fact_obj_t* fobj, nfs_job_t* job);
 void ggnfs_to_msieve(fact_obj_t* fobj, nfs_job_t* job);
-void get_ggnfs_params(fact_obj_t* fobj, nfs_job_t* job);
+int get_ggnfs_params(fact_obj_t* fobj, nfs_job_t* job);
 int check_for_sievers(fact_obj_t* fobj, int revert_to_siqs);
 void print_poly(mpz_polys_t* poly, FILE* out);
 void print_job(nfs_job_t* job, FILE* out);
@@ -168,7 +174,8 @@ uint32_t do_msieve_filtering(fact_obj_t* fobj, msieve_obj* obj, nfs_job_t* job);
 void do_msieve_polyselect(fact_obj_t* fobj, msieve_obj* obj, nfs_job_t* job, mp_t* mpN, factor_list_t* factor_list);
 void get_polysearch_params(fact_obj_t* fobj, uint64_t* start, uint64_t* range);
 void init_poly_threaddata(nfs_threaddata_t* t, msieve_obj* obj,
-    mp_t* mpN, factor_list_t* factor_list, int tid, uint32_t flags, uint64_t start, uint64_t stop);
+    mp_t* mpN, factor_list_t* factor_list, int tid, uint32_t flags, uint32_t deadline, 
+    uint64_t start, uint64_t stop);
 void do_sieving(fact_obj_t* fobj, nfs_job_t* job);
 void trial_sieve(fact_obj_t* fobj); // external test sieve frontend
 int test_sieve(fact_obj_t* fobj, void* args, int njobs, int are_files);
@@ -190,10 +197,12 @@ void* nfs_worker_thread_main(void* thread_data);
 void find_brent_form(fact_obj_t* fobj, snfs_t* poly);
 void find_hcunn_form(fact_obj_t* fobj, snfs_t* poly);
 void find_xyyxf_form(fact_obj_t* fobj, snfs_t* poly);
+void find_direct_form(fact_obj_t* fobj, snfs_t* poly);
 snfs_t* gen_brent_poly(fact_obj_t* fobj, snfs_t* poly, int* npolys); // the workhorse
 snfs_t* gen_xyyxf_poly(fact_obj_t* fobj, snfs_t* poly, int* npolys);
 int snfs_choose_poly(fact_obj_t* fobj, nfs_job_t* job);
 void check_poly(snfs_t* poly, int VFLAG);
+void compute_difficulty_from_poly(snfs_t* poly, int VFLAG);
 void print_snfs(snfs_t* poly, FILE* out);
 void snfs_copy_poly(snfs_t* src, snfs_t* dest);
 void approx_norms(snfs_t* poly);
@@ -201,7 +210,7 @@ void snfs_scale_difficulty(snfs_t* polys, int npoly, int VFLAG);
 int snfs_rank_polys(fact_obj_t* fobj, snfs_t* polys, int npoly);
 int qcomp_snfs_sdifficulty(const void* x, const void* y);
 int qcomp_snfs_murphy(const void* x, const void* y);
-nfs_job_t* snfs_test_sieve(fact_obj_t* fobj, snfs_t* polys, int npoly, nfs_job_t* jobs);
+nfs_job_t* snfs_test_sieve(fact_obj_t* fobj, snfs_t* polys, int npoly, nfs_job_t* jobs, int force_test);
 void snfs_make_job_file(fact_obj_t* fobj, nfs_job_t* job);
 void snfs_init(snfs_t* poly);
 void snfs_clear(snfs_t* poly);

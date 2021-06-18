@@ -173,7 +173,7 @@ static int function_nargs[NUM_FUNC] = {
     2, 2, 1, 1, 1, 
     3, 1, 2, 1, 1, 
     3, 2, 2, 1, 0, 
-    1, 1, 1, 4, 4, 
+    2, 1, 1, 4, 4, 
     3, 1, 0, 1, 1,
     2, 0, 0};
 
@@ -1553,6 +1553,19 @@ void calc_with_assignment(str_t* in, meta_t* metadata, int force_quiet)
                 else if (OBASE == HEX)
                 {
                     gmp_printf("\n%s = %Zx\n\n", varname, tmp);
+                }
+            }
+            else if (force_quiet == 1)
+            {
+                // if -silent, just output the answer.
+                if (OBASE == DEC)
+                {
+                    gmp_printf("%Zd\n", tmp);
+
+                }
+                else if (OBASE == HEX)
+                {
+                    gmp_printf("%Zx\n", tmp);
                 }
             }
         }

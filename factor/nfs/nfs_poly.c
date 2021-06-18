@@ -41,6 +41,11 @@ static const poly_deadline_t time_limits[] = {
 snfs_t * snfs_find_form(fact_obj_t *fobj)
 {
 	snfs_t* poly;
+    struct timeval stopt;	// stop time of this job
+    struct timeval startt;	// start time of this job
+    double t_time;
+
+    gettimeofday(&startt, NULL);
 
 	// allow larger one to come in, because some polynomials forms are significantly reduced
 	// (i.e., x^(2n))
@@ -90,6 +95,29 @@ snfs_t * snfs_find_form(fact_obj_t *fobj)
 		find_xyyxf_form(fobj, poly);
 	}
 
+    if (poly->form_type == SNFS_NONE)
+    {
+        if (fobj->VFLAG >= 0) printf("nfs: searching for direct special forms...\n");
+        // if this is a factor() run, restore the original input number so that we 
+        // can detect these forms
+        if (fobj->autofact_obj.autofact_active)
+        {
+            mpz_set(fobj->nfs_obj.snfs_cofactor, fobj->nfs_obj.gmp_n);
+            mpz_set(fobj->nfs_obj.gmp_n, fobj->N);
+        }
+
+        find_direct_form(fobj, poly);
+
+        if (fobj->autofact_obj.autofact_active)
+        {
+            mpz_set(fobj->nfs_obj.gmp_n, fobj->nfs_obj.snfs_cofactor);
+        }
+    }
+
+    gettimeofday(&stopt, NULL);
+    t_time = ytools_difftime(&startt, &stopt);
+    printf("nfs: snfs form detection took %lf seconds\n", t_time);
+
 	if (poly->form_type == SNFS_NONE)
 	{
 		printf("nfs: couldn't find special form\n");
@@ -136,6 +164,20 @@ int snfs_choose_poly(fact_obj_t* fobj, nfs_job_t* job)
 		free(poly);
 		return 1;
 	}
+    else if (npoly == 1)
+    {
+		if (fobj->VFLAG >= 0)
+		{
+			printf("nfs: found %d polynomial\n", npoly);
+		}
+    }
+    else if (npoly > 1)
+    {
+		if (fobj->VFLAG >= 0)
+		{
+			printf("nfs: found %d polynomials, selecting best\n", npoly);
+		}
+    }
 
 	// we've now measured the difficulty for poly's of all common degrees possibly formed
 	// in several different ways.  now we have a decision to make based largely on difficulty and 
@@ -143,7 +185,10 @@ int snfs_choose_poly(fact_obj_t* fobj, nfs_job_t* job)
 	// both sides to be approximately equal.  Sometimes multiple degrees satisfy this requirement
 	// approximately equally in which case only test-sieving can really resolve the difference.
 	snfs_scale_difficulty(polys, npoly, fobj->VFLAG);
-	npoly = snfs_rank_polys(fobj, polys, npoly);
+    if (npoly > 1)
+    {
+        npoly = snfs_rank_polys(fobj, polys, npoly);
+    }
 
 	if (fobj->VFLAG > 0 && npoly > 1)
 	{		
@@ -192,18 +237,28 @@ int snfs_choose_poly(fact_obj_t* fobj, nfs_job_t* job)
 		skew_snfs_params(fobj, &jobs[i]);
 	}
 
-	if ((est_gnfs_size(&jobs[0]) > (mpz_sizeinbase(fobj->nfs_obj.gmp_n, 10) + 3)) &&
-		!fobj->nfs_obj.snfs)
+    //printf("gnfs size = %d, size n + 3 = %d, snfs = %d\n", est_gnfs_size(&jobs[0]),
+    //    (mpz_sizeinbase(fobj->nfs_obj.gmp_n, 10) + 3), fobj->nfs_obj.snfs);
+
+	if ((est_gnfs_size(&jobs[0]) > (mpz_sizeinbase(fobj->nfs_obj.gmp_n, 10) + 3)))
 	{
-		// the input is probably faster by gnfs, and the user hasn't specifically chosen
-		// snfs, so don't trial sieve and return the gnfs preference
-		retcode = 1;
-		copy_job(&jobs[0], job);
-		goto cleanup;
+        if (fobj->nfs_obj.snfs)
+        {
+            // the input is probably faster by gnfs, and the user hasn't specifically chosen
+            // snfs, so don't trial sieve and return the gnfs preference
+            printf("gen: WARNING: input probably faster by gnfs but proceeding with snfs-specified job\n");
+        }
+        else
+        {
+            // faster by gnfs despite found snfs form, skip to gnfs processing.
+            retcode = 1;
+            copy_job(&jobs[0], job);
+            goto cleanup;
+        }
 	}
 
 	// return best job, which contains the best poly
-	best = snfs_test_sieve(fobj, polys, MIN(NUM_SNFS_POLYS,npoly), jobs);
+	best = snfs_test_sieve(fobj, polys, MIN(NUM_SNFS_POLYS,npoly), jobs, 0);
 
 	if (fobj->VFLAG > 0)
 	{
@@ -226,6 +281,52 @@ int snfs_choose_poly(fact_obj_t* fobj, nfs_job_t* job)
 		if (f != NULL) print_snfs(best->snfs, f);
 		if (f != NULL) fclose(f);
 	}
+
+	// if the norms are close, also check both sides of the selected poly
+	if (fabs(log10(best->snfs->rnorm) - log10(best->snfs->anorm)) < 5.0)
+	{
+		enum special_q_e side = best->poly->side;
+		double score = best->test_score;
+
+		best->poly->side = best->poly->side == RATIONAL_SPQ ? ALGEBRAIC_SPQ : RATIONAL_SPQ;
+
+		printf("gen: selected polynomial has close norms (rat=%1.2e, alg=%1.2e)\ngen: testing opposite side\n",
+			best->snfs->rnorm, best->snfs->anorm);
+
+		best = snfs_test_sieve(fobj, best->snfs, 1, best, 1);
+
+		if (best->test_score >= score)
+		{
+			// wasn't better, keep original side.
+			best->poly->side = side;
+		}
+	}
+
+    int do_skew_opt = 1;
+    if (do_skew_opt)
+    {
+        // if requested, dither the skew to attempt to find 
+        // a higher score.
+        double bestmurph = best->poly->murphy;
+        double bestskew = best->poly->skew;
+        double origskew = best->poly->skew;
+
+        for (i = 0; i < 100; i++)
+        {
+            best->poly->skew = origskew * (1 + (0.4 * (rand() / RAND_MAX) - 0.2));
+            printf("on iteration %d trying skew %lf: ", i, best->poly->skew);
+            analyze_one_poly_xface(best->snfs);
+            if (best->poly->murphy > bestmurph)
+            {
+                bestskew = best->poly->skew;
+                bestmurph = best->poly->murphy;
+                printf("on iteration %d found better skew: %lf with murphy score %le\n", 
+                    i, bestskew, bestmurph);
+            }
+        }
+
+        best->poly->skew = bestskew;
+    }
 
 	// copy the best job to the object that will be returned from this function
 	copy_job(best, job);
@@ -387,7 +488,9 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 		}
 	}		
 
-	if (fobj->nfs_obj.poly_option == 0)
+    // now we always do "fast", i.e., divide deadline by number of threads,
+    // and search for an "avg" poly score by default.
+	if (1) //fobj->nfs_obj.poly_option == 0)
 	{
 		// 'fast' search.  scale by number of threads
 		deadline /= fobj->THREADS;
@@ -429,7 +532,11 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
         // even if e.g., 'deep' was specified.
         quality_mult = 1.4;
         strcpy(quality, "awesome");
+
+        fobj->nfs_obj.poly_option == 4;
+        printf("psearch options deep, fast, and wide are deprecated, using psearch=avg\n");
     }
+
     if (fobj->nfs_obj.poly_option == 3)
     {
         quality_mult = 1.0;
@@ -485,7 +592,7 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 
 		// create thread data with dummy range for now
 		init_poly_threaddata(t, obj, mpN, factor_list, i, flags,
-			(uint64_t)1, (uint64_t)1001);
+			deadline, (uint64_t)1, (uint64_t)1001);
 
 		//give this thread a unique index
 		t->tindex = i;
@@ -706,8 +813,10 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
             if (bestscore < (e0 * quality_mult))
             {
                 // if we can re-start the thread such that it is likely to finish before the
-                // deadline, go ahead and do so.
-                if ((uint32_t)t_time + estimated_range_time <= deadline)
+                // deadline, go ahead and do so.  Also make sure we at least have
+                // one poly before quitting.
+                if (((uint32_t)t_time + estimated_range_time <= deadline) ||
+                    (bestscore == 0.0))
                 {
 
                     // unless the user has specified a custom range search, in which case
@@ -719,7 +828,7 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
                     else
                     {
                         init_poly_threaddata(t, obj, mpN, factor_list, tid, flags,
-                            start, start + range);
+                            deadline, start, start + range);
 
                         if (fobj->nfs_obj.poly_option == 2)
                         {
@@ -861,14 +970,50 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 
 void init_poly_threaddata(nfs_threaddata_t *t, msieve_obj *obj, 
 	mp_t *mpN, factor_list_t *factor_list, int tid, uint32_t flags,
-	uint64_t start, uint64_t stop)
+	uint32_t deadline, uint64_t start, uint64_t stop)
 {
 	fact_obj_t *fobj = t->fobj;
 	char *nfs_args = (char *)malloc(GSTR_MAXSIZE * sizeof(char));
+    int digits = gmp_base10(t->fobj->nfs_obj.gmp_n);
+    int deadline_per_coeff;
+
+    // this is the old deadline table used in msieve prior to version 1023.
+    // if we just use the deadline per thread then we spend all our time
+    // on a single range of coefficients per thread.  
+    // It's a question of searching really deep in a small range of coefficients
+    // or scanning lightly through a wider range of coefficients.  The latter
+    // is what yafu used to do prior to 1023 so that's what this emulates.
+    // Testing with the new approach seems to show that we find a perfectly
+    // acceptable poly fairly quickly, then spend a long time finishing
+    // the search for at best an incremental improvement in score.  With
+    // larger inputs that might be ok, but for most use below say c130 it
+    // seems wasteful.
+    if (digits <= 100)
+        deadline_per_coeff = 5;
+    else if (digits <= 105)
+        deadline_per_coeff = 20;
+    else if (digits <= 110)
+        deadline_per_coeff = 30;
+    else if (digits <= 120)
+        deadline_per_coeff = 50;
+    else if (digits <= 130)
+        deadline_per_coeff = 100;
+    else if (digits <= 140)
+        deadline_per_coeff = 200;
+    else if (digits <= 150)
+        deadline_per_coeff = 400;
+    else if (digits <= 175)
+        deadline_per_coeff = 800;
+    else if (digits <= 200)
+        deadline_per_coeff = 1600;
+    else
+        deadline_per_coeff = 3200;
+
 	t->logfilename = (char *)malloc(80 * sizeof(char));
 	t->polyfilename = (char *)malloc(80 * sizeof(char));
 	t->fbfilename = (char *)malloc(80 * sizeof(char));
-	sprintf(nfs_args, "min_coeff=%" PRIu64 " max_coeff=%" PRIu64, start, stop);
+	sprintf(nfs_args, "min_coeff=%" PRIu64 " max_coeff=%" PRIu64 " poly_deadline=%d", 
+        start, stop, deadline_per_coeff);
 	sprintf(t->polyfilename,"%s.%d",fobj->nfs_obj.outputfile,tid);
 	sprintf(t->logfilename,"%s.%d",fobj->nfs_obj.logfile,tid);
 	sprintf(t->fbfilename,"%s.%d",fobj->nfs_obj.fbfile,tid);

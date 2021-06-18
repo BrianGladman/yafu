@@ -1094,7 +1094,7 @@ enum factorization_state schedule_work(factor_work_t *fwork, mpz_t b, fact_obj_t
 
 #ifdef USE_NFS
 	if ((fobj->autofact_obj.has_snfs_form == 1) && (fobj->nfs_obj.gnfs == 0) && 
-        (strcmp(fobj->autofact_obj.plan_str,"normal") == 0) &&
+        (strcmp(fobj->autofact_obj.plan_str,"custom") != 0) &&
         (fobj->autofact_obj.only_pretest <= 1))
 	{
 		// 1) we found a snfs polynomial for the input.
@@ -1105,7 +1105,7 @@ enum factorization_state schedule_work(factor_work_t *fwork, mpz_t b, fact_obj_t
 		// however we also need to check if easier by gnfs... this involves a little more work.
 		// This work will be duplicated if we actually get to SNFS (i.e., we don't find an
 		// ECM factor), but this goes fast.
-		// temporarily set verbosity high so we don't spam the screen.  
+		// temporarily set verbosity silent so we don't spam the screen.  
 		int tmpV = fobj->VFLAG;
 		snfs_t *polys = NULL;
 		int npoly;

@@ -363,7 +363,7 @@ int main(int argc, char *argv[])
             firstline = 1;
             reset_preprocessor();
             logprint(logfile, "Processing: %s\n", input_str.s);
-            result = process_expression(input_str.s, &calc_metadata, 0, 0);
+            result = process_expression(input_str.s, &calc_metadata, fobj->VFLAG < 0, 0);
             logprint(logfile, "Result    : %s\n", result);
             sClear(&input_str);
             if (result != NULL)
@@ -799,6 +799,9 @@ int check_expression(options_t* options)
         is_cmdline_run = 1;
     }
 
+#ifdef NO_PIPE
+
+#else
     // now check for incoming pipes or redirects.  If we see one, ignore the
     // command line expression and process the pipe/redirect.
 
@@ -863,6 +866,7 @@ int check_expression(options_t* options)
 //#if defined(__MINGW32__)
 //    }
 //#endif
+#endif
 
 	return is_cmdline_run;
 
@@ -1510,7 +1514,7 @@ void options_to_factobj(fact_obj_t* fobj, options_t* options)
     strcpy(fobj->nfs_obj.job_infile, options->nfs_jobfile);
 
     // default = fast search
-    fobj->nfs_obj.poly_option = 0;
+    fobj->nfs_obj.poly_option = 4;
     if (strcmp(options->poly_method, "wide") == 0)
         fobj->nfs_obj.poly_option = 1;
     else if (strcmp(options->poly_method, "deep") == 0)
