@@ -81,6 +81,7 @@
       <AdditionalIncludeDirectories>..\..\include;..\..\top\cmdParser;..\..\top\aprcl;..\..\..\ytools\;..\..\..\ysieve\;..\..\..\msieve\zlib;..\..\..\mpir\lib\$(IntDir);..\..\..\gmp-ecm\</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_MBCS;USE_AVX512F;SKYLAKEX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WholeProgramOptimization>false</WholeProgramOptimization>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

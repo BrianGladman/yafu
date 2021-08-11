@@ -251,13 +251,14 @@
       <CompileAs>CompileAsC</CompileAs>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>..\..\..\mpir\lib\$(IntDir)mpir.lib;..\..\lib\$(IntDir)siqs.lib;..\..\lib\$(IntDir)factor_common.lib;..\..\lib\$(IntDir)ecm.lib;..\..\lib\$(IntDir)nfs.lib;..\..\..\gmp-ecm\lib\$(IntDir)libecm.lib;..\..\..\msieve\lib\$(IntDir)gnfs.lib;..\..\..\msieve\lib\$(IntDir)common.lib;..\..\..\msieve\lib\$(IntDir)zlib.lib;..\..\..\ysieve\lib\$(IntDir)ysieve.lib;..\..\..\ytools\lib\$(IntDir)ytools.lib</AdditionalDependencies>
+      <AdditionalDependencies>..\..\..\mpir\lib\$(IntDir)mpir.lib;..\..\lib\$(IntDir)siqs.lib;..\..\lib\$(IntDir)factor_common.lib;..\..\lib\$(IntDir)ecm.lib;..\..\lib\$(IntDir)nfs.lib;..\..\..\gmp-ecm\lib\$(IntDir)libecm.lib;..\..\..\msieve\lib\$(IntDir)gnfs.lib;..\..\..\msieve\lib\$(IntDir)common.lib;..\..\..\msieve\lib\$(IntDir)zlib.lib;..\..\..\ysieve\lib\$(IntDir)ysieve.lib;..\..\..\ytools\lib\$(IntDir)ytools.lib;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.4\lib\$(Platform)\cuda.lib;..\..\..\pthreads\lib\x64\Release\pthreads.lib</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
       <OptimizeReferences>
       </OptimizeReferences>
