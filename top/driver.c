@@ -893,7 +893,7 @@ void print_splash(fact_obj_t *fobj, info_t *comp_info, int is_cmdline_run,
         printf("YAFU Version %s\n", YAFU_VERSION_STRING);
         logprint(logfile, "YAFU Version %s\n", YAFU_VERSION_STRING);
 #ifdef _MSC_VER
-        printf("Built with Microsoft Visual Studio %d\n", _MSC_VER);
+        printf("Built with Microsoft Visual C/C++ %d\n", _MSC_VER);
         logprint(logfile, "Built with Microsoft Visual Studio % d\n", _MSC_VER);
 #elif defined (__INTEL_COMPILER)
         printf("Built with Intel Compiler %d\n", __INTEL_COMPILER);
