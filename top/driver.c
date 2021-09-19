@@ -162,7 +162,7 @@ int main(int argc, char *argv[])
     fobj->HAS_AVX2 = comp_info.AVX2;
     fobj->HAS_AVX = comp_info.AVX;
     fobj->HAS_SSE41 = comp_info.bSSE41Extensions;
-    fobj->NUM_WITNESSES = options->num_prp_witnesses;
+    fobj->NUM_WITNESSES = yafu_obj.NUM_WITNESSES = options->num_prp_witnesses;
     fobj->cache_size1 = fobj->L1CACHE = comp_info.L1cache;
     fobj->cache_size2 = fobj->L2CACHE = comp_info.L2cache;
     fobj->LOGFLAG = yafu_obj.LOGFLAG;
@@ -301,6 +301,17 @@ int main(int argc, char *argv[])
 	{		
         // running interactively, reset the fobj every line.
         reset_factobj(fobj);
+
+        // don't need to re-annouce anything every time the user
+        // hits the return key
+        options_to_factobj(fobj, options);
+        int verbose_level = fobj->VFLAG;
+        fobj->VFLAG = yafu_obj.VFLAG = -1;
+        for (i = 0; i < options->num_tune_info; i++)
+        {
+            apply_tuneinfo(&yafu_obj, fobj, options->tune_info[i]);
+        }
+        fobj->VFLAG = yafu_obj.VFLAG = verbose_level;
 
 		// handle a batch file, if passed in.
 		if (yafu_obj.USEBATCHFILE)
@@ -1248,6 +1259,8 @@ void apply_tuneinfo(yafu_obj_t* yobj, fact_obj_t *fobj, char *arg)
 		fobj->qs_obj.qs_tune_freq = fobj->nfs_obj.gnfs_tune_freq;
 	}
 #else 
+
+    //printf("cpustr: %s\nyobj->CPU_ID_STR: %s\nosstr: %s\n", cpustr, yobj->CPU_ID_STR, osstr);
 	if ((strcmp(cpustr, yobj->CPU_ID_STR) == 0) && (strcmp(osstr, "LINUX64") == 0))
 	{
         if (yobj->VFLAG > 0)
@@ -1291,6 +1304,8 @@ void options_to_factobj(fact_obj_t* fobj, options_t* options)
         fobj->seed2 = (uint32_t)(options->rand_seed >> 32);
         fobj->lcg_state = options->rand_seed;
     }
+
+    fobj->NUM_WITNESSES = options->num_prp_witnesses;
 
     // initialize stuff for rho	
     fobj->rho_obj.iterations = options->rhomax;
