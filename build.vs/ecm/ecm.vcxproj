@@ -153,6 +153,8 @@
     <ClCompile Include="..\..\factor\avx-ecm\avx_ecm_main.c" />
     <ClCompile Include="..\..\factor\avx-ecm\vecarith.c" />
     <ClCompile Include="..\..\factor\avx-ecm\vecarith52.c" />
+    <ClCompile Include="..\..\factor\avx-ecm\vecarith52_common.c" />
+    <ClCompile Include="..\..\factor\avx-ecm\vecarith52_special.c" />
     <ClCompile Include="..\..\factor\avx-ecm\vec_common.c" />
     <ClCompile Include="..\..\factor\gmp-ecm\ecm.c" />
     <ClCompile Include="..\..\factor\gmp-ecm\pm1.c" />

@@ -97,6 +97,9 @@
     <Lib>
       <LinkTimeCodeGeneration>false</LinkTimeCodeGeneration>
     </Lib>
+    <CudaCompile>
+      <Runtime>MT</Runtime>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

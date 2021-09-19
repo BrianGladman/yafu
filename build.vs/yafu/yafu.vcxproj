@@ -50,6 +50,7 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
     <Import Project="..\vsyasm.props" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.4.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -274,6 +275,9 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <OutputFile>$(OutDir)$(ProjectName).bsc</OutputFile>
     </Bscmake>
+    <CudaCompile>
+      <Runtime>MT</Runtime>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\factor\autofactor.c" />
@@ -292,5 +296,6 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="..\vsyasm.targets" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.4.targets" />
   </ImportGroup>
 </Project>
