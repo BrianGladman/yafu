@@ -91,7 +91,7 @@
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>..\..\..\mpir\lib\$(IntDir)mpir.lib;..\..\lib\$(IntDir)\factor_common.lib;..\..\lib\$(IntDir)\ecm.lib;..\..\lib\$(IntDir)\nfs.lib;..\..\..\msieve\lib\$(IntDir)gnfs.lib;..\..\..\msieve\lib\$(IntDir)common.lib;..\..\..\msieve\lib\$(IntDir)zlib.lib;..\..\..\ysieve\lib\$(IntDir)ysieve.lib;..\..\..\ytools\lib\$(IntDir)ytools.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\..\..\mpir\lib\$(IntDir)mpir.lib;..\..\lib\$(IntDir)\factor_common.lib;..\..\lib\$(IntDir)\ecm.lib;..\..\lib\$(IntDir)\nfs.lib;..\..\lib\$(IntDir)\siqs.lib;..\..\..\msieve\lib\$(IntDir)gnfs.lib;..\..\..\msieve\lib\$(IntDir)common.lib;..\..\..\msieve\lib\$(IntDir)zlib.lib;..\..\..\ysieve\lib\$(IntDir)ysieve.lib;..\..\..\ytools\lib\$(IntDir)ytools.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -116,7 +116,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
-      <AdditionalDependencies>..\..\..\mpir\lib\$(IntDir)mpir.lib;..\..\lib\$(IntDir)\factor_common.lib;..\..\lib\$(IntDir)\ecm.lib;..\..\lib\$(IntDir)\nfs.lib;..\..\..\msieve\lib\$(IntDir)gnfs.lib;..\..\..\msieve\lib\$(IntDir)common.lib;..\..\..\msieve\lib\$(IntDir)zlib.lib;..\..\..\ysieve\lib\$(IntDir)ysieve.lib;..\..\..\ytools\lib\$(IntDir)ytools.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\..\..\mpir\lib\$(IntDir)mpir.lib;..\..\lib\$(IntDir)\factor_common.lib;..\..\lib\$(IntDir)\ecm.lib;..\..\lib\$(IntDir)\nfs.lib;..\..\lib\$(IntDir)\siqs.lib;..\..\..\msieve\lib\$(IntDir)gnfs.lib;..\..\..\msieve\lib\$(IntDir)common.lib;..\..\..\msieve\lib\$(IntDir)zlib.lib;..\..\..\ysieve\lib\$(IntDir)ysieve.lib;..\..\..\ytools\lib\$(IntDir)ytools.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
