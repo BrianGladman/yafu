@@ -35,9 +35,11 @@ void init_factobj(fact_obj_t* fobj)
     fobj->flags = 0;
     fobj->num_threads = 1;
     strcpy(fobj->flogname, "factor.log");
+    strcpy(fobj->factor_json_name, "factor.json");
     fobj->do_logging = 1;   // not used...
     fobj->LOGFLAG = 1;
     fobj->NUM_WITNESSES = 1;
+    fobj->refactor_depth = 0;
 
     // get space for everything
     alloc_factobj(fobj);
@@ -168,6 +170,14 @@ void init_factobj(fact_obj_t* fobj)
     strcpy(fobj->nfs_obj.ggnfs_dir, "./");
 #endif
 
+    fobj->nfs_obj.poly_time = 0.0;
+    fobj->nfs_obj.filter_time = 0.0;
+    fobj->nfs_obj.sieve_time = 0.0;
+    fobj->nfs_obj.la_time = 0.0;
+    fobj->nfs_obj.sqrt_time = 0.0;
+    fobj->nfs_obj.ttime = 0.0;
+
+
     //initialize autofactor object
     //whether we want to output certain info to their own files...
     fobj->autofact_obj.want_output_primes = 0;
@@ -247,6 +257,9 @@ void free_factobj(fact_obj_t *fobj)
 
 	//free general fobj stuff
 	mpz_clear(fobj->N);
+    mpz_clear(fobj->input_N);
+    free(fobj->input_str);
+    fobj->input_str_alloc = 0;
 
 	clear_factor_list(fobj->factors);
 	free(fobj->factors);
@@ -263,6 +276,9 @@ void alloc_factobj(fact_obj_t *fobj)
 	int i;
 	
 	mpz_init(fobj->N);
+    mpz_init(fobj->input_N);
+    fobj->input_str = (char*)xmalloc(1024 * sizeof(char));
+    fobj->input_str_alloc = 1024;
 
 	fobj->rho_obj.num_poly = 3;
 	fobj->rho_obj.polynomials = (uint32_t *)xmalloc(fobj->rho_obj.num_poly * sizeof(uint32_t));
@@ -554,6 +570,8 @@ int add_to_factor_list(yfactor_list_t *flist, mpz_t n, int VFLAG, int NUM_WITNES
 	mpz_init(flist->factors[fid].factor);
 	mpz_set(flist->factors[fid].factor, n);
     flist->factors[fid].count = 1;
+    flist->factors[fid].type = UNKNOWN;
+
 	if (gmp_base10(n) <= flist->aprcl_prove_cutoff) /* prove primality of numbers <= aprcl_prove_cutoff digits */
 	{
 		int ret = 0;
@@ -567,6 +585,8 @@ int add_to_factor_list(yfactor_list_t *flist, mpz_t n, int VFLAG, int NUM_WITNES
 			printf("\n");
 
 		ret = mpz_aprtcle(n, v);
+
+        //printf("aprtcle returned %d\n", ret);
 
 		if (v == APRTCLE_VERBOSE1)
 			printf("\n");
@@ -616,6 +636,7 @@ void delete_from_factor_list(yfactor_list_t* flist, mpz_t n)
             {
                 mpz_set(flist->factors[j].factor, flist->factors[j + 1].factor);
                 flist->factors[j].count = flist->factors[j + 1].count;
+                flist->factors[j].type = flist->factors[j + 1].type;
             }
             // remove the last one in the list
             flist->factors[j].count = 0;
@@ -701,25 +722,6 @@ void print_factors(yfactor_list_t* flist, mpz_t N, int VFLAG, int NUM_WITNESSES)
 
 		for (i=0; i< flist->num_factors; i++)
 		{
-
-			//if (fobj->fobj_factors[i].type == COMPOSITE)
-			//{
-			//	for (j=0;j<fobj->fobj_factors[i].count;j++)
-			//	{
-			//		mpz_mul(tmp, tmp, fobj->fobj_factors[i].factor);
-			//		gmp_printf("C%d = %Zd\n", gmp_base10(fobj->fobj_factors[i].factor),
-			//			fobj->fobj_factors[i].factor);
-			//	}
-			//}
-			//else if (fobj->fobj_factors[i].type == PRP)
-			//{
-			//	for (j=0;j<fobj->fobj_factors[i].count;j++)
-			//	{
-			//		mpz_mul(tmp, tmp, fobj->fobj_factors[i].factor);
-			//		gmp_printf("PRP%d = %Zd\n", gmp_base10(fobj->fobj_factors[i].factor),
-			//			fobj->fobj_factors[i].factor);
-			//	}
-			//}
 			if (flist->factors[i].type == PRIME)
 			{
 				// don't redo APR-CL calculations already performed by add_to_factor_list
@@ -730,7 +732,27 @@ void print_factors(yfactor_list_t* flist, mpz_t N, int VFLAG, int NUM_WITNESSES)
                         flist->factors[i].factor);
 				}
 			}
-			else
+			else if (flist->factors[i].type == PRP)
+            {
+                // don't redo mpz_isprobab_prime calculations already performed by add_to_factor_list
+                for (j = 0; j < flist->factors[i].count; j++)
+                {
+                    mpz_mul(tmp, tmp, flist->factors[i].factor);
+                    gmp_printf("PRP%d = %Zd\n", gmp_base10(flist->factors[i].factor),
+                        flist->factors[i].factor);
+                }
+            }
+            else if (flist->factors[i].type == COMPOSITE)
+            {
+                // don't redo mpz_isprobab_prime calculations already performed by add_to_factor_list
+                for (j = 0; j < flist->factors[i].count; j++)
+                {
+                    mpz_mul(tmp, tmp, flist->factors[i].factor);
+                    gmp_printf("C%d = %Zd\n", gmp_base10(flist->factors[i].factor),
+                        flist->factors[i].factor);
+                }
+            }
+            else
 			{
 				//type not set, determine it now
 				/* prove primality of numbers <= aprcl_prove_cutoff digits */
@@ -747,6 +769,10 @@ void print_factors(yfactor_list_t* flist, mpz_t N, int VFLAG, int NUM_WITNESSES)
 					if (v == APRTCLE_VERBOSE1)
 						printf("\n");
 					ret = mpz_aprtcle(flist->factors[i].factor, v);
+
+                    //gmp_printf("in print_factors aprtcle returned status %d on input %Zd\n", ret, 
+                    //    flist->factors[i].factor);
+
 					if (v == APRTCLE_VERBOSE1)
 						printf("\n");
 

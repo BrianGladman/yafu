@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
         yafu_obj.USERSEED = 1;
     }
 
-    if (yafu_obj.VFLAG > 0)
+    //if (yafu_obj.VFLAG > 0)
     {
         if (ini_success)
         {
@@ -315,7 +315,7 @@ int main(int argc, char *argv[])
         // running interactively, reset the fobj every line.
         reset_factobj(fobj);
 
-        // don't need to re-annouce anything every time the user
+        // don't need to re-announce anything every time the user
         // hits the return key
         options_to_factobj(fobj, options);
         int verbose_level = fobj->VFLAG;
@@ -384,6 +384,14 @@ int main(int argc, char *argv[])
                 continue;
             }
 
+            if (strlen(input_str.s) >= fobj->input_str_alloc)
+            {
+                fobj->input_str = xrealloc(fobj->input_str, strlen(input_str.s) + 2);
+                fobj->input_str_alloc = strlen(input_str.s) + 2;
+            }
+            fobj->argc = argc;
+            fobj->argv = argv;
+            strcpy(fobj->input_str, input_str.s);
             firstline = 1;
             reset_preprocessor();
             logprint(logfile, "Processing: %s\n", input_str.s);
@@ -395,6 +403,21 @@ int main(int argc, char *argv[])
                 free(result);
             }
 		}
+
+        // support changing options from the command line in an interactive session
+        options->verbosity = fobj->VFLAG;
+        options->B1ecm = fobj->ecm_obj.B1;
+        options->B2ecm = fobj->ecm_obj.B2;
+        options->B1pm1 = fobj->pm1_obj.B1;
+        options->B2pm1 = fobj->pm1_obj.B2;
+        options->B1pp1 = fobj->pp1_obj.B1;
+        options->B2pp1 = fobj->pp1_obj.B2;
+        fobj->pm1_obj.stg2_is_default = (options->B2pm1 == 0);
+        fobj->pp1_obj.stg2_is_default = (options->B2pp1 == 0);
+        fobj->ecm_obj.stg2_is_default = (options->B2ecm == 0);
+        options->rhomax = fobj->rho_obj.iterations;
+        options->num_prp_witnesses = fobj->NUM_WITNESSES;
+        options->threads = fobj->THREADS;
 
 #if defined(WIN32) && !defined(__MINGW32__)
 		fflush(stdin);	//important!  otherwise scanf will process printf's output

@@ -101,7 +101,7 @@ int isEOE(char s);
 int getFunc(char* s, int* nargs);
 int feval(int func, int nargs, meta_t* metadata);
 int new_uvar(const char* name, mpz_t data);
-int set_uvar(const char* name, mpz_t data);
+int set_uvar(const char* name, mpz_t data, fact_obj_t *fobj);
 int get_uvar(const char* name, mpz_t data);
 void free_uvars();
 int new_strvar(const char* name, char* data);
@@ -1530,10 +1530,10 @@ void calc_with_assignment(str_t* in, meta_t* metadata, int force_quiet)
             // always set the default variable to the new answer
             mpz_set_str(tmp, str.s, 0);
             sCopy(&str, in);
-            set_uvar("ans", tmp);
+            set_uvar("ans", tmp, metadata->fobj);
 
             // and optionally any assigned variable as well.
-            if (set_uvar(varname, tmp))
+            if (set_uvar(varname, tmp, metadata->fobj))
             {
                 new_uvar(varname, tmp);
             }
@@ -2147,7 +2147,19 @@ int feval(int funcnum, int nargs, meta_t *metadata)
 		// isprime - one argument
         if (check_args(funcnum, nargs)) break;
         i = mpz_probab_prime_p(operands[0], fobj->NUM_WITNESSES);
-		mpz_set_ui(operands[0], i);
+        if (i==0)
+            mpz_set_ui(operands[0], 0);
+        else if (i==1)
+            mpz_set_ui(operands[0], 1);
+        else if (i==2)
+            mpz_set_ui(operands[0], 1);
+        else
+        {
+            printf("mpz_probab_prime_p returned unexpected result %d\n", i);
+            mpz_set_ui(operands[0], i);
+        }
+            
+		
 		break;
 	case 12:
 		// sqrt - one argument
@@ -2444,26 +2456,29 @@ int feval(int funcnum, int nargs, meta_t *metadata)
         if (check_args(funcnum, nargs)) break;
 
         mpz_set(fobj->N, operands[0]);
+        mpz_set(fobj->input_N, fobj->N);
         factor(fobj);
         mpz_set(operands[0], fobj->N);
-        print_factors(fobj->factors, fobj->N, fobj->VFLAG, fobj->NUM_WITNESSES);
+        print_factors(fobj->factors, fobj->N, fobj->VFLAG, fobj->NUM_WITNESSES);        
 
+        // someday will come back and work on the command/scripting interpreter
+        if (0)
         {
             char vname[20];
             for (i = 0; i < fobj->factors->num_factors; i++)
             {
 
                 sprintf(vname, "_f%d", i);
-                if (set_uvar(vname, fobj->factors->factors[i].factor))
+                if (set_uvar(vname, fobj->factors->factors[i].factor, fobj))
                     new_uvar(vname, fobj->factors->factors[i].factor);
                 sprintf(vname, "_fpow%d", i);
                 mpz_set_ui(operands[4], fobj->factors->factors[i].count);
-                if (set_uvar(vname, operands[4]))
+                if (set_uvar(vname, operands[4], fobj))
                     new_uvar(vname, operands[4]);
             }
             sprintf(vname, "_fnum");
             mpz_set_ui(operands[4], fobj->factors->num_factors);
-            if (set_uvar(vname, operands[4]))
+            if (set_uvar(vname, operands[4], fobj))
                 new_uvar(vname, operands[4]);
         }
 
@@ -3111,7 +3126,7 @@ int new_uvar(const char *name, mpz_t data)
 	return uvars.num - 1;
 }
 
-int set_uvar(const char *name, mpz_t data)
+int set_uvar(const char *name, mpz_t data, fact_obj_t* fobj)
 {
 	// look for 'name' in the global uvars structure
 	// if found, copy in data and return 0
@@ -3146,6 +3161,43 @@ int set_uvar(const char *name, mpz_t data)
 			return 1;
 		}
 	}
+    else if (strcmp(name, "verbose") == 0)
+    {
+        fobj->VFLAG = mpz_get_ui(data);
+    }
+    else if (strcmp(name, "B1pm1") == 0) {
+        fobj->pm1_obj.B1 = mpz_get_ui(data);
+    }
+    else if (strcmp(name, "B2pm1") == 0) {
+        fobj->pm1_obj.B2 = mpz_get_ui(data);
+    }
+    else if (strcmp(name, "B1pp1") == 0) {
+        fobj->pp1_obj.B1 = mpz_get_ui(data);
+    }
+    else if (strcmp(name, "B2pp1") == 0) {
+        fobj->pp1_obj.B2 = mpz_get_ui(data);
+    }
+    else if (strcmp(name, "B1ecm") == 0) {
+        fobj->ecm_obj.B1 = mpz_get_ui(data);
+    }
+    else if (strcmp(name, "B2ecm") == 0) {
+        fobj->ecm_obj.B2 = mpz_get_ui(data);
+    }
+    else if (strcmp(name, "rhomax") == 0) {
+        fobj->rho_obj.iterations = mpz_get_ui(data);
+    }
+    else if (strcmp(name, "nprp") == 0) {
+        fobj->NUM_WITNESSES = mpz_get_ui(data);
+    }
+    else if (strcmp(name, "threads") == 0) {
+        fobj->THREADS = mpz_get_ui(data);
+    }
+    //else if (strcmp(name, "pfile") == 0) {
+    //
+    //}
+    //else if (strcmp(name, "pscreen") == 0) {
+    //   
+    //}
 
 	for (i=0;i<uvars.num;i++)
 	{
@@ -3352,25 +3404,25 @@ int invalid_dest(char* dest)
         return 1;	//is a function name
 
     //global vars are ok
-    if (strcmp(dest, "POLLARD_STG1_MAX") == 0) {
+    if (strcmp(dest, "B1pm1") == 0) {
         return 0;
     }
-    else if (strcmp(dest, "POLLARD_STG2_MAX") == 0) {
+    else if (strcmp(dest, "B2pm1") == 0) {
         return 0;
     }
-    else if (strcmp(dest, "WILL_STG1_MAX") == 0) {
+    else if (strcmp(dest, "B1pp1") == 0) {
         return 0;
     }
-    else if (strcmp(dest, "WILL_STG2_MAX") == 0) {
+    else if (strcmp(dest, "B2pp1") == 0) {
         return 0;
     }
-    else if (strcmp(dest, "ECM_STG1_MAX") == 0) {
+    else if (strcmp(dest, "B1ecm") == 0) {
         return 0;
     }
-    else if (strcmp(dest, "ECM_STG2_MAX") == 0) {
+    else if (strcmp(dest, "B2ecm") == 0) {
         return 0;
     }
-    else if (strcmp(dest, "BRENT_MAX_IT") == 0) {
+    else if (strcmp(dest, "rhomax") == 0) {
         return 0;
     }
     else if (strcmp(dest, "IBASE") == 0) {
@@ -3379,22 +3431,19 @@ int invalid_dest(char* dest)
     else if (strcmp(dest, "OBASE") == 0) {
         return 0;
     }
-    else if (strcmp(dest, "QS_DUMP_CUTOFF") == 0) {
+    else if (strcmp(dest, "nprp") == 0) {
         return 0;
     }
-    else if (strcmp(dest, "NUM_WITNESSES") == 0) {
+    else if (strcmp(dest, "verbose") == 0) {
         return 0;
     }
-    else if (strcmp(dest, "LOGFLAG") == 0) {
+    else if (strcmp(dest, "pfile") == 0) {
         return 0;
     }
-    else if (strcmp(dest, "VFLAG") == 0) {
+    else if (strcmp(dest, "pscreen") == 0) {
         return 0;
     }
-    else if (strcmp(dest, "PRIMES_TO_FILE") == 0) {
-        return 0;
-    }
-    else if (strcmp(dest, "PRIMES_TO_SCREEN") == 0) {
+    else if (strcmp(dest, "threads") == 0) {
         return 0;
     }
 

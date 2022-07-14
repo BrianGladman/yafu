@@ -30,6 +30,8 @@ code to the public domain.
 #include "cmdOptions.h"
 #include <stdint.h>
 #include "autofactor.h"
+#include "gmp.h"
+#include "ecm.h"
 
 /* produced using ecm -v -v -v for the various B1 bounds (default B2).
 /	Thanks A. Schindel !
@@ -108,6 +110,8 @@ typedef struct
 	uint32_t  ecm_65digit_curves;
 	int min_pretest_done;
 
+	double tlevels[NUM_ECM_LEVELS];
+
 	// max amount of work we'll allow in various areas.
 	// to be filled in during init, or overriden by user
 	uint32_t  tdiv_max_limit;
@@ -183,7 +187,8 @@ void init_factor_work(factor_work_t *fwork, fact_obj_t *fobj);
 void interp_and_set_curves(factor_work_t *fwork, fact_obj_t *fobj, 
 	enum factorization_state state, double work_done,
 	double target_digits, int log_results);
-
+void write_factor_json(fact_obj_t* fobj, factor_work_t* fwork,
+	struct timeval* start, struct timeval* stop);
 
 double get_qs_time_estimate(fact_obj_t *fobj, mpz_t b)
 {
@@ -542,9 +547,8 @@ int check_if_done(fact_obj_t *fobj, mpz_t N)
 			done = 1;
 			for (i=0; i<fobj->factors->num_factors; i++)
 			{
-				if (!is_mpz_prp(fobj->factors->factors[i].factor, fobj->NUM_WITNESSES))
-				{
-					fobj->refactor_depth++;
+				if (is_mpz_prp(fobj->factors->factors[i].factor, fobj->NUM_WITNESSES) == 0)
+				{					
 					if (fobj->refactor_depth > 3)
 					{
 						printf("too many refactorization attempts, aborting\n");
@@ -566,9 +570,17 @@ int check_if_done(fact_obj_t *fobj, mpz_t N)
                         copy_factobj(fobj_refactor, fobj);
 
 						mpz_set(fobj_refactor->N, fobj->factors->factors[i].factor);
-                        fobj_refactor->refactor_depth = fobj->refactor_depth;
+                        fobj_refactor->refactor_depth = fobj->refactor_depth + 1;
 
 						// recurse on factor
+						//mpz_set(fobj_refactor->input_N, fobj_refactor->N);
+						//if (fobj_refactor->input_str_alloc <= mpz_sizeinbase(fobj_refactor->N, 10))
+						//{
+						//	fobj_refactor->input_str = (char *)xrealloc(fobj_refactor->input_str,
+						//		mpz_sizeinbase(fobj_refactor->N, 10) + 2);
+						//	fobj_refactor->input_str_alloc = mpz_sizeinbase(fobj_refactor->N, 10);
+						//}
+						//mpz_get_str(fobj_refactor->input_str, 10, fobj_refactor->N);
 						factor(fobj_refactor);
 
 						// remove the factor from the original list
@@ -971,7 +983,7 @@ double compute_ecm_work_done(factor_work_t *fwork, int disp_levels, FILE *log,
 	// there is probably a more elegant way to do this involving dickman's function
 	// or something, but we can get a reasonable estimate using empirical data
 	// for our fixed set of B1/B2 values.
-	double tlevels[NUM_ECM_LEVELS];
+	double *tlevels = fwork->tlevels;
 	uint32_t  curves_done;
 	int i, j;
 
@@ -2060,6 +2072,7 @@ void factor(fact_obj_t *fobj)
 
 	gettimeofday (&stop, NULL);
     t_time = ytools_difftime(&start, &stop);
+	fobj->autofact_obj.ttime = t_time;
 
 	if (fobj->VFLAG >= 0)
 		printf("Total factoring time = %6.4f seconds\n",t_time);
@@ -2067,6 +2080,11 @@ void factor(fact_obj_t *fobj)
 	logprint_oc(fobj->flogname, "a", "Total factoring time = %6.4f seconds\n",t_time);
 
 	fobj->autofact_obj.autofact_active=0;
+
+	if (fobj->refactor_depth == 0)
+	{
+		write_factor_json(fobj, &fwork, &start, &stop);
+	}
 
 	//restore flags
 	fobj->ecm_obj.stg2_is_default = user_defined_ecm_b2;
@@ -2078,5 +2096,249 @@ void factor(fact_obj_t *fobj)
 	mpz_clear(b);
 	return;
 }
+
+
+void write_factor_json(fact_obj_t* fobj, factor_work_t *fwork,
+	struct timeval *start, struct timeval *stop)
+{
+	FILE* fid = fopen(fobj->factor_json_name, "a");
+	yfactor_list_t* flist = fobj->factors;
+	int i;
+	int j;
+	int nump = 0;
+	int numprp = 0;
+	int numc = 0;
+	int printedp = 0;
+	int printedprp = 0;
+	int printedc = 0;
+
+	if (fid != NULL)
+	{
+		{
+			fprintf(fid, "{\n");
+			fprintf(fid, "\t\"input-expression\":\"%s\",\n", fobj->input_str);
+			gmp_fprintf(fid, "\t\"input-decimal\":\"%Zd\",\n", fobj->input_N);
+
+			if (fobj->argc > 1)
+			{
+				fprintf(fid, "\t\"input-argument-string\":\"");
+				for (i = 1; i < fobj->argc; i++)
+				{
+					fprintf(fid, "%s ", fobj->argv[i]);
+				}
+				fprintf(fid, "\",\n");
+			}
+
+			for (i = 0; i < flist->num_factors; i++)
+			{
+				if (flist->factors[i].type == PRIME)
+					nump++;
+			}
+			for (i = 0; i < flist->num_factors; i++)
+			{
+				if (flist->factors[i].type == PRP)
+					numprp++;
+			}
+			for (i = 0; i < flist->num_factors; i++)
+			{
+				if (flist->factors[i].type == COMPOSITE)
+					numc++;
+			}
+
+			if (nump > 0)
+			{
+				fprintf(fid, "\t\"factors-prime\":[");
+				for (i = 0; i < flist->num_factors; i++)
+				{
+					if (flist->factors[i].type == PRIME)
+					{
+						// don't redo APR-CL calculations already performed by add_to_factor_list
+						for (j = 0; j < flist->factors[i].count - 1; j++)
+						{
+							gmp_fprintf(fid, "\"%Zd\",", flist->factors[i].factor);
+						}
+
+						if (printedp == (nump - 1))
+						{
+							gmp_fprintf(fid, "\"%Zd\"],\n", flist->factors[i].factor);
+						}
+						else
+						{
+							gmp_fprintf(fid, "\"%Zd\",", flist->factors[i].factor);
+						}
+						printedp++;
+					}
+				}
+			}
+
+			if (numprp > 0)
+			{
+				fprintf(fid, "\t\"factors-prp\":[");
+				for (i = 0; i < flist->num_factors; i++)
+				{
+					if (flist->factors[i].type == PRP)
+					{
+						for (j = 0; j < flist->factors[i].count - 1; j++)
+						{
+							gmp_fprintf(fid, "\"%Zd\",", flist->factors[i].factor);
+						}
+						if (printedprp == (numprp - 1))
+						{
+							gmp_fprintf(fid, "\"%Zd\"],\n", flist->factors[i].factor);
+						}
+						else
+						{
+							gmp_fprintf(fid, "\"%Zd\",", flist->factors[i].factor);
+						}
+						printedprp++;
+					}
+				}
+			}
+
+			if (numc > 0)
+			{
+				fprintf(fid, "\t\"factors-composite\":[");
+				for (i = 0; i < flist->num_factors; i++)
+				{
+					if (flist->factors[i].type == COMPOSITE)
+					{
+						for (j = 0; j < flist->factors[i].count - 1; j++)
+						{
+							gmp_fprintf(fid, "\"%Zd\",", flist->factors[i].factor);
+						}
+						if (printedc == (numc - 1))
+						{
+							gmp_fprintf(fid, "\"%Zd\"],\n", flist->factors[i].factor);
+						}
+						else
+						{
+							gmp_fprintf(fid, "\"%Zd\",", flist->factors[i].factor);
+						}
+						printedc++;
+					}
+				}
+			}
+
+			if (fwork->pm1_lvl1_curves > 0)
+			{
+				fprintf(fid, "\t\"pm1-curves\" : {\"150000\":%d", fwork->pm1_lvl1_curves);
+			}
+			if (fwork->pm1_lvl2_curves > 0)
+			{
+				fprintf(fid, ",\"3750000\":%d", fwork->pm1_lvl2_curves);
+			}
+			if (fwork->pm1_lvl3_curves > 0)
+			{
+				fprintf(fid, ",\"15000000\":%d", fwork->pm1_lvl3_curves);
+			}
+			if (fwork->pm1_lvl1_curves > 0) fprintf(fid, "},\n");
+
+			if (fwork->pp1_lvl1_curves > 0)
+			{
+				fprintf(fid, "\t\"pp1-curves\" : {\"25000\":%d", fwork->pp1_lvl1_curves);
+			}
+			if (fwork->pp1_lvl2_curves > 0)
+			{
+				fprintf(fid, ",\"750000\":%d", fwork->pp1_lvl2_curves);
+			}
+			if (fwork->pp1_lvl3_curves > 0)
+			{
+				fprintf(fid, ",\"2500000\":%d", fwork->pp1_lvl3_curves);
+			}
+			if (fwork->pp1_lvl1_curves > 0) fprintf(fid, "},\n");
+
+
+			if (fwork->tlevels[0] > 0.01)
+			{
+				fprintf(fid, "\t\"ecm-curves\" : {");
+				if (fwork->ecm_15digit_curves > 0) fprintf(fid, "\"2000\":%d", fwork->ecm_15digit_curves);
+				if (fwork->ecm_20digit_curves > 0) fprintf(fid, ",\"11000\":%d", fwork->ecm_20digit_curves);
+				if (fwork->ecm_25digit_curves > 0) fprintf(fid, ",\"50000\":%d", fwork->ecm_25digit_curves);
+				if (fwork->ecm_30digit_curves > 0) fprintf(fid, ",\"250000\":%d", fwork->ecm_30digit_curves);
+				if (fwork->ecm_35digit_curves > 0) fprintf(fid, ",\"1000000\":%d", fwork->ecm_35digit_curves);
+				if (fwork->ecm_40digit_curves > 0) fprintf(fid, ",\"3000000\":%d", fwork->ecm_40digit_curves);
+				if (fwork->ecm_45digit_curves > 0) fprintf(fid, ",\"11000000\":%d", fwork->ecm_45digit_curves);
+				if (fwork->ecm_50digit_curves > 0) fprintf(fid, ",\"43000000\":%d", fwork->ecm_50digit_curves);
+				if (fwork->ecm_55digit_curves > 0) fprintf(fid, ",\"110000000\":%d", fwork->ecm_55digit_curves);
+				if (fwork->ecm_60digit_curves > 0) fprintf(fid, ",\"260000000\":%d", fwork->ecm_60digit_curves);
+				if (fwork->ecm_65digit_curves > 0) fprintf(fid, ",\"850000000\":%d", fwork->ecm_65digit_curves);
+				fprintf(fid, "},\n");
+
+				fprintf(fid, "\t\"ecm-levels\" : {");
+				int level = 15;
+				for (i = 0; i < NUM_ECM_LEVELS - 1; i++)
+				{
+					if ((fwork->tlevels[i] > 0.01) && (fwork->tlevels[i + 1] > 0.01))
+					{
+						fprintf(fid, "\"t%d\":%1.2f,", level, fwork->tlevels[i]);
+					}
+					else if (fwork->tlevels[i] > 0.01)
+					{
+						fprintf(fid, "\"t%d\":%1.2f},\n", level, fwork->tlevels[i]);
+					}
+					level += 5;
+				}
+				if (fwork->tlevels[i] > 0.01)
+				{
+					fprintf(fid, "\"t%d\":%1.2f},\n", level, fwork->tlevels[i]);
+				}
+			}
+
+			fprintf(fid, "\t\"runtime\" : {\"total\":%1.4f, \"ecm\":%1.4f, \"pm1\":%1.4f, "
+				"\"pp1\":%1.4f, \"siqs\":%1.4f, \"nfs-total\":%1.4f, \"nfs-poly\":%1.4f"
+				", \"nfs-sieve\":%1.4f, \"nfs-filter\":%1.4f"
+				", \"nfs-la\":%1.4f, \"nfs-sqrt\":%1.4f},\n",
+				fobj->autofact_obj.ttime, fobj->ecm_obj.ttime, fobj->pm1_obj.ttime,
+				fobj->pp1_obj.ttime, fobj->qs_obj.total_time, fobj->nfs_obj.ttime,
+				fobj->nfs_obj.poly_time, fobj->nfs_obj.sieve_time, fobj->nfs_obj.filter_time,
+				fobj->nfs_obj.la_time, fobj->nfs_obj.sqrt_time);
+
+			char buffer[30];
+			time_t curtime;
+
+			curtime = start->tv_sec;
+			strftime(buffer, 30, "%Y-%m-%d  %T", localtime(&curtime));
+			fprintf(fid, "\t\"time-start\" : \"%s\",\n", buffer);
+			curtime = stop->tv_sec;
+			strftime(buffer, 30, "%Y-%m-%d  %T", localtime(&curtime));
+			fprintf(fid, "\t\"time-end\" : \"%s\",\n", buffer);
+
+
+			fprintf(fid, "\t\"info\":{");
+
+#ifdef _MSC_VER
+			fprintf(fid, "\"compiler\":\"MSVC %d\",", _MSC_VER);
+#elif defined (__INTEL_COMPILER)
+			fprintf(fid, "\"compiler\":\"INTEL %d\",", __INTEL_COMPILER);
+#elif defined (__GNUC__)
+			fprintf(fid, "\"compiler\":\"GNUC %d\",", __GNUC__);
+#endif
+
+#ifdef _MSC_MPIR_VERSION
+#ifdef ECM_VERSION
+			fprintf(fid, "\"ECM-version\":\"%s\",\"MPIR-version\":\"%s\",", ECM_VERSION,
+				_MSC_MPIR_VERSION);
+#elif defined(VERSION)
+
+			fprintf(fid, "\"ECM-version\":\"%s\",\"MPIR-version\":\"%s\",", VERSION,
+				_MSC_MPIR_VERSION);
+#endif
+#else
+#ifdef ECM_VERSION
+			fprintf(fid, "\"ECM-version\":\"%s\",\"GMP-version\":\"%d.%d.%d\",", ECM_VERSION,
+				__GNU_MP_VERSION, __GNU_MP_VERSION_MINOR, __GNU_MP_VERSION_PATCHLEVEL);
+#endif
+
+#endif
+			fprintf(fid, "\"yafu-version\":\"%s\"}\n}\n", YAFU_VERSION_STRING);
+
+
+			fclose(fid);
+		}
+	}
+
+	return;
+}
+
 
 
