@@ -12,6 +12,7 @@ benefit from your work.
        				   --bbuhrow@gmail.com 12/6/2012
 ----------------------------------------------------------------------*/
 
+#include <stdio.h>
 #include "nfs_impl.h"
 #include "ytools.h"
 #include "gmp_xface.h"
@@ -647,7 +648,9 @@ void find_brent_form(fact_obj_t *fobj, snfs_t *form)
 		}
 	}
 
-	// this checks only x^n +- 1
+
+	// this checks x^n +- p, p small, up to a larger exponent value
+	maxb = 1000;
 	for (i = maxb; i>1; i--)
 	{
 		// now that we've reduced the exponent considerably, check for 
@@ -736,24 +739,42 @@ void find_brent_form(fact_obj_t *fobj, snfs_t *form)
         mpz_pow_ui(p, b, i);
         mpz_sub(p, n, p);       // and see if n - b^i is "small"
 
-        if (mpz_sizeinbase(p, 2) < (mpz_sizeinbase(n, 2) / 4))
+        if (mpz_sizeinbase(p, 2) < 31)
         {
-            //char s[2048];
-            //char s2[2048];
-            // if the remainder is less than a quarter the size of the input, output the 
-            // potential form (one-quarter-size being "small"-ish)        
-            gmp_printf("nfs: input divides %Zd^%d + %Zd\n", b, i, p);
+			char* s = NULL; // [2048] ;
+			char* s2 = NULL; // [2048] ;
+			if (fobj->VFLAG >= 0)
+				gmp_printf("nfs: input divides %Zd^%d + %Zd\n", b, i, p);
 
-            //logprint_oc(fobj->flogname, "a", "nfs: input divides %s^%d + %s\n",
-            //    mpz_get_str(s, 10, b), i, mpz_get_str(s2, 10, p));
-            //form->form_type = SNFS_XYYXF;
-            //form->coeff1 = 1;
-            //mpz_set(form->base1, b);
-            //form->exp1 = i;
-            //mpz_set(form->base2, p);
-            //form->coeff2 = 1;
-            //form->exp2 = 1;
+            logprint_oc(fobj->flogname, "a", "nfs: input divides %s^%d + %s\n",
+                mpz_get_str(s, 10, b), i, mpz_get_str(s2, 10, p));
 
+            form->form_type = SNFS_BRENT;
+            form->coeff1 = 1;
+            mpz_set(form->base1, b);
+            form->exp1 = i;
+            mpz_set_ui(form->base2, 1);
+            form->coeff2 = mpz_get_ui(p);
+            form->exp2 = 1;
+			if (mpz_cmp_ui(fobj->nfs_obj.snfs_cofactor, 1) > 0)
+			{
+				if (fobj->LOGFLAG)
+				{
+					FILE* f = fopen(fobj->flogname, "a");
+					if (f != NULL)
+					{
+						logprint(f, "nfs: using supplied cofactor: ");
+						gmp_fprintf(f, "%Zd\n", fobj->nfs_obj.snfs_cofactor);
+						fclose(f);
+					}
+				}
+				mpz_set(form->n, fobj->nfs_obj.snfs_cofactor);
+			}
+			else
+				mpz_set(form->n, n);
+
+			free(s);
+			free(s2);
             goto done;
         }
 
@@ -762,40 +783,41 @@ void find_brent_form(fact_obj_t *fobj, snfs_t *form)
         mpz_pow_ui(p, b, i);
         mpz_sub(p, p, n);       // and see if (b+1)^i - n is "small"
 
-        if (mpz_sizeinbase(p, 2) < (mpz_sizeinbase(n, 2) / 4))
+        if (mpz_sizeinbase(p, 2) < 31)
         {
-            //char s[2048];
-            //char s2[2048];
-            // if the remainder is less than a quarter the size of the input, output the 
-            // potential form (one-quarter-size being "small"-ish)
+			char* s = NULL; // [2048] ;
+			char* s2 = NULL; // [2048] ;
             gmp_printf("nfs: input divides %Zd^%d - %Zd\n", b, i, p);
 
-            //logprint_oc(fobj->flogname, "a", "nfs: input divides %s^%d - %s\n", 
-            //    mpz_get_str(s, 10, b), i, mpz_get_str(s2, 10, p));
-            //form->form_type = SNFS_XYYXF;
-            //form->coeff1 = 1;
-            //mpz_set(form->base1, b);
-            //form->exp1 = i;
-            //mpz_set(form->base2, p);
-            //form->coeff2 = -1;
-            //form->exp2 = 1;
+            logprint_oc(fobj->flogname, "a", "nfs: input divides %s^%d - %s\n", 
+                mpz_get_str(s, 10, b), i, mpz_get_str(s2, 10, p));
+            
+			form->form_type = SNFS_BRENT;
+			form->coeff1 = 1;
+			mpz_set(form->base1, b);
+			form->exp1 = i;
+			mpz_set_ui(form->base2, 1);
+			form->coeff2 = -(int)mpz_get_ui(p);
+			form->exp2 = 1;
+			if (mpz_cmp_ui(fobj->nfs_obj.snfs_cofactor, 1) > 0)
+			{
+				if (fobj->LOGFLAG)
+				{
+					FILE* f = fopen(fobj->flogname, "a");
+					if (f != NULL)
+					{
+						logprint(f, "nfs: using supplied cofactor: ");
+						gmp_fprintf(f, "%Zd\n", fobj->nfs_obj.snfs_cofactor);
+						fclose(f);
+					}
+				}
+				mpz_set(form->n, fobj->nfs_obj.snfs_cofactor);
+			}
+			else
+				mpz_set(form->n, n);
 
-            //// if the exponent is divisible by 2 in this case, then we can algebraically factor
-            //// as b^(2n) - 1 = (b^n + 1)(b^n - 1)
-            //if ((i & 0x1) == 0)
-            //    form->exp1 /= 2;
-            //if (mpz_cmp_ui(fobj->nfs_obj.snfs_cofactor, 1) > 0)
-            //{
-            //    FILE *f = fopen(fobj->flogname, "a");
-            //    logprint(f, "nfs: using supplied cofactor: ");
-            //    gmp_fprintf(f, "%Zd\n", fobj->nfs_obj.snfs_cofactor);
-            //    fclose(f);
-            //    mpz_set(form->n, fobj->nfs_obj.snfs_cofactor);
-            //}
-            //else
-            //    mpz_set(form->n, n);
-
-
+			free(s);
+			free(s2);
             goto done;
         }
 
@@ -803,6 +825,7 @@ void find_brent_form(fact_obj_t *fobj, snfs_t *form)
 
 
 done:
+
 	mpz_clear(p);
 	mpz_clear(a);
 	mpz_clear(b);
@@ -930,6 +953,7 @@ done:
 	mpz_clear(a);
 	mpz_clear(b);
 	mpz_clear(r);
+	mpz_clear(n);
 	return;
 }
 
@@ -1415,31 +1439,91 @@ snfs_t* gen_brent_poly(fact_obj_t *fobj, snfs_t *poly, int* npolys)
 	if ((poly->form_type != SNFS_DIRECT) && (poly->coeff1 == 1) && (abs(poly->coeff2) == 1))
 		find_primitive_factor(poly, fobj->primes, fobj->num_p, fobj->VFLAG);
 
-    if (fobj->LOGFLAG)
+
+    if (mpz_cmp(poly->primitive, poly->n) == 0)
     {
-        if (mpz_cmp(poly->primitive, poly->n) == 0)
-        {
-            FILE* f = fopen(fobj->flogname, "a");
-            if (f != NULL)
-            {
-                logprint(f, "nfs: commencing snfs on c%d primitive factor: ",
-                    gmp_base10(poly->primitive));
-                gmp_fprintf(f, "%Zd\n", poly->primitive);
-                fclose(f);
-            }
-        }
-        else
-        {
-            FILE* f = fopen(fobj->flogname, "a");
-            if (f != NULL)
-            {
-                logprint(f, "nfs: commencing snfs on c%d: ",
-                    gmp_base10(poly->n));
-                gmp_fprintf(f, "%Zd\n", poly->n);
-                fclose(f);
-            }
-        }
+		// it's possible for this primitive factor to be prime, in which case we are done.
+		if (is_mpz_prp(poly->primitive, 1))
+		{
+
+			if (fobj->LOGFLAG)
+			{
+				FILE* f = fopen(fobj->flogname, "a");
+
+				if (f != NULL)
+				{
+					logprint(f, "nfs: snfs primitive factor is a probable prime\nnfs: ");
+					gmp_fprintf(f, "%Zd\n", poly->primitive);
+					fclose(f);
+				}
+			}
+
+			if (fobj->VFLAG > 0)
+			{
+				printf("nfs: snfs primitive factor is a probable prime\nnfs: ");
+				gmp_printf("%Zd\n", poly->primitive);
+			}
+
+			char c[4];
+
+			add_to_factor_list(fobj->factors, poly->primitive, fobj->VFLAG, fobj->NUM_WITNESSES);
+			strncpy(c, "prp", 4);
+
+			if (fobj->LOGFLAG)
+			{
+				FILE *logfile = fopen(fobj->flogname, "a");
+				if (logfile == NULL)
+				{
+					printf("fopen error: %s\n", strerror(errno));
+					printf("could not open yafu logfile for appending\n");
+				}
+				else
+				{
+					char* s = mpz_get_str(NULL, 10, poly->primitive);
+					logprint(logfile, "%s%d = %s\n", c,
+						gmp_base10(poly->primitive), s);
+					fclose(logfile);
+					free(s);
+				}
+			}
+
+			mpz_set_ui(fobj->nfs_obj.gmp_n, 1);
+			*npolys = 0;
+			return NULL;
+
+		}
+		else
+		{
+			if (fobj->LOGFLAG)
+			{
+				FILE* f = fopen(fobj->flogname, "a");
+
+				if (f != NULL)
+				{
+					logprint(f, "nfs: commencing snfs on c%d primitive factor: ",
+						gmp_base10(poly->primitive));
+					gmp_fprintf(f, "%Zd\n", poly->primitive);
+					fclose(f);
+				}
+			}
+		}
     }
+    else
+    {
+		if (fobj->LOGFLAG)
+		{
+			FILE* f = fopen(fobj->flogname, "a");
+
+			if (f != NULL)
+			{
+				logprint(f, "nfs: commencing snfs on c%d: ",
+					gmp_base10(poly->n));
+				gmp_fprintf(f, "%Zd\n", poly->n);
+				fclose(f);
+			}
+		}
+    }
+
 
     if (poly->form_type == SNFS_DIRECT)
     {
@@ -2043,6 +2127,8 @@ snfs_t* gen_brent_poly(fact_obj_t *fobj, snfs_t *poly, int* npolys)
 			start_deg = 5;
 			stop_deg = 6;
 		}
+
+		fflush(stdout);
 
 		for (i=start_deg; i<=stop_deg; i++)
 		{			

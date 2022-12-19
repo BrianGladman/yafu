@@ -19,6 +19,7 @@ code to the public domain.
 ----------------------------------------------------------------------*/
 
 #include "yafu.h"
+#include "microecm.h"
 #include "arith.h"
 #include "ytools.h"
 #include "qs.h"
@@ -26,6 +27,7 @@ code to the public domain.
 #include "monty.h"
 #include "cofactorize.h"
 #include <ecm.h>
+#include <math.h>
 
 void test_dlp_composites()
 {
@@ -241,8 +243,8 @@ tinyecm_start:
 	f1 = (uint32_t *)malloc(2000000 * sizeof(uint32_t));
 	f2 = (uint32_t *)malloc(2000000 * sizeof(uint32_t));
 
-    //goto tinyecm_marker;
-    goto spfermat_marker;
+    goto tinyecm_marker;
+    //goto spfermat_marker;
     //goto tinyqs_marker;
 	//goto brent_marker;
 	
@@ -272,33 +274,27 @@ tinyecm_start:
 brent_marker:
 
     i = 0;
-	strcpy(filenames[i++], "pseudoprimes_32bit.dat");
-	strcpy(filenames[i++], "pseudoprimes_34bit.dat");
-	strcpy(filenames[i++], "pseudoprimes_36bit.dat");
-	strcpy(filenames[i++], "pseudoprimes_38bit.dat");
-    strcpy(filenames[i++], "pseudoprimes_40bit.dat");
-	strcpy(filenames[i++], "pseudoprimes_42bit.dat");
-	strcpy(filenames[i++], "pseudoprimes_44bit.dat");
-	strcpy(filenames[i++], "pseudoprimes_46bit.dat");
-    //strcpy(filenames[i++], "pseudoprimes_41bit.dat");
-    strcpy(filenames[i++], "pseudoprimes_48bit.dat");
-	strcpy(filenames[i++], "pseudoprimes_50bit.dat");
-	strcpy(filenames[i++], "pseudoprimes_52bit.dat");
-	strcpy(filenames[i++], "pseudoprimes_54bit.dat");
-	strcpy(filenames[i++], "pseudoprimes_56bit.dat");
-	strcpy(filenames[i++], "pseudoprimes_58bit.dat");
-    //strcpy(filenames[i++], "pseudoprimes_51bit.dat");
-    //strcpy(filenames[i++], "pseudoprimes_55bit.dat");
-    //strcpy(filenames[i++], "pseudoprimes_59bit.dat");
-    strcpy(filenames[i++], "pseudoprimes_60bit.dat");
-    //strcpy(filenames[i++], "pseudoprimes_61bit.dat");
-    strcpy(filenames[i++], "pseudoprimes_62bit.dat");
-    //strcpy(filenames[i++], "pseudoprimes_63bit.dat");
-    strcpy(filenames[i++], "pseudoprimes_64bit.dat");
-    num_files = 17;
+	strcpy(filenames[i++], "semiprimes_32bit.dat");
+	strcpy(filenames[i++], "semiprimes_34bit.dat");
+	strcpy(filenames[i++], "semiprimes_36bit.dat");
+	strcpy(filenames[i++], "semiprimes_38bit.dat");
+    strcpy(filenames[i++], "semiprimes_40bit.dat");
+	strcpy(filenames[i++], "semiprimes_42bit.dat");
+	strcpy(filenames[i++], "semiprimes_44bit.dat");
+	strcpy(filenames[i++], "semiprimes_46bit.dat");
+    strcpy(filenames[i++], "semiprimes_48bit.dat");
+	strcpy(filenames[i++], "semiprimes_50bit.dat");
+	strcpy(filenames[i++], "semiprimes_52bit.dat");
+	strcpy(filenames[i++], "semiprimes_54bit.dat");
+	strcpy(filenames[i++], "semiprimes_56bit.dat");
+	strcpy(filenames[i++], "semiprimes_58bit.dat");
+    strcpy(filenames[i++], "semiprimes_60bit.dat");
+    strcpy(filenames[i++], "semiprimes_62bit.dat");
+    strcpy(filenames[i++], "semiprimes_64bit.dat");
+    num_files = i;
 
 	// lehman test
-	for (nf = 0; nf < 8; nf++)
+	for (nf = 0; nf < 5; nf++)
 	{
 		in = fopen(filenames[nf], "r");
 
@@ -334,12 +330,17 @@ brent_marker:
 
 		correct = 0;
 		k = 0;
-		for (i = 0; i < num; i++)
+		int j;
+
+		for (j = 0; j < 10; j++)
 		{
-			f64 = LehmanFactor(comp[i], 3.5, 0, 0.1);
-			if ((f64 == f1[i]) || (f64 == f2[i]))
+			for (i = 0; i < num; i++)
 			{
-				correct++;
+				f64 = LehmanFactor(comp[i], 3.5, 0, 0.1);
+				if ((f64 == f1[i]) || (f64 == f2[i]))
+				{
+					correct++;
+				}
 			}
 		}
 
@@ -351,9 +352,11 @@ brent_marker:
 		printf("average time per input = %1.4f ms\n", 1000 * t_time / (double)num);
 	}
 
+	goto tinyecm_marker;
+
 	// spbrent test
     // msvc max of 62 bits
-    for (nf = 0; nf < 0; nf++)
+    for (nf = 0; nf < num_files; nf++)
     {
         in = fopen(filenames[nf], "r");
 
@@ -424,7 +427,7 @@ brent_marker:
         printf("average time per input = %1.4f ms\n", 1000 * t_time / (double)num);
     }
 
-	//goto tinyecm_marker;
+	goto tinyecm_marker;
 
 	// sequential squfof test
 	for (nf = 0; nf < 5; nf++)
@@ -500,13 +503,13 @@ brent_marker:
 tinyqs_marker:
 
     i = 0;
-    strcpy(filenames[i++], "pseudoprimes_56bit.dat");
-    strcpy(filenames[i++], "pseudoprimes_60bit.dat");
-    strcpy(filenames[i++], "pseudoprimes_64bit.dat");
-    strcpy(filenames[i++], "pseudoprimes_70bit.dat");
-    strcpy(filenames[i++], "pseudoprimes_80bit.dat");
-    strcpy(filenames[i++], "pseudoprimes_90bit.dat");
-    strcpy(filenames[i++], "pseudoprimes_100bit.dat");
+    strcpy(filenames[i++], "semiprimes_56bit.dat");
+    strcpy(filenames[i++], "semiprimes_60bit.dat");
+    strcpy(filenames[i++], "semiprimes_64bit.dat");
+    strcpy(filenames[i++], "semiprimes_70bit.dat");
+    strcpy(filenames[i++], "semiprimes_80bit.dat");
+    strcpy(filenames[i++], "semiprimes_90bit.dat");
+    strcpy(filenames[i++], "semiprimes_100bit.dat");
     //strcpy(filenames[i++], "pseudoprimes_110bit.dat");
     //strcpy(filenames[i++], "pseudoprimes_120bit.dat");
     //strcpy(filenames[i++], "pseudoprimes_125bit.dat");
@@ -862,89 +865,49 @@ spfermat_marker:
 
 tinyecm_marker:
 	i = 0;
-    strcpy(filenames[i++], "pseudoprimes_32bit.dat");
-    strcpy(filenames[i++], "pseudoprimes_34bit.dat");
-    strcpy(filenames[i++], "pseudoprimes_36bit.dat");
-    strcpy(filenames[i++], "pseudoprimes_38bit.dat");
-    strcpy(filenames[i++], "pseudoprimes_40bit.dat");
-	strcpy(filenames[i++], "pseudoprimes_42bit.dat");		// 70
-	strcpy(filenames[i++], "pseudoprimes_44bit.dat");		// 70
-	strcpy(filenames[i++], "pseudoprimes_46bit.dat");		// 70
-	strcpy(filenames[i++], "pseudoprimes_48bit.dat");		// 70
-	strcpy(filenames[i++], "pseudoprimes_50bit.dat");		// 70
-	strcpy(filenames[i++], "pseudoprimes_52bit.dat");		// 85
-	strcpy(filenames[i++], "pseudoprimes_54bit.dat");       // 85
-	strcpy(filenames[i++], "pseudoprimes_56bit.dat");		// 125
-	strcpy(filenames[i++], "pseudoprimes_58bit.dat");		// 125
-	strcpy(filenames[i++], "pseudoprimes_60bit.dat");		// 165
-	strcpy(filenames[i++], "pseudoprimes_62bit.dat");		// 165
-	strcpy(filenames[i++], "pseudoprimes_64bit.dat");		// 205
-	strcpy(filenames[i++], "semiprimes_tlp_32x32x32.txt");
-	strcpy(filenames[i++], "semiprimes_tlp_32x64.txt");
-	strcpy(filenames[i++], "semiprimes_tlp_48x48.txt");
-    strcpy(filenames[i++], "pseudoprimes_70bit.dat");
-	strcpy(filenames[i++], "pseudoprimes_80bit.dat");
-	strcpy(filenames[i++], "pseudoprimes_90bit.dat");
-	strcpy(filenames[i++], "pseudoprimes_100bit.dat");
-	strcpy(filenames[i++], "pseudoprimes_110bit.dat");
-	strcpy(filenames[i++], "pseudoprimes_120bit.dat");
-	strcpy(filenames[i++], "pseudoprimes_125bit.dat");
-	num_files = 24;
-	num = 100000;
+    strcpy(filenames[i++], "semiprimes_32bit.dat");
+    strcpy(filenames[i++], "semiprimes_34bit.dat");
+    strcpy(filenames[i++], "semiprimes_36bit.dat");
+    strcpy(filenames[i++], "semiprimes_38bit.dat");
+    strcpy(filenames[i++], "semiprimes_40bit.dat");
+	strcpy(filenames[i++], "semiprimes_42bit.dat");		// 70
+	strcpy(filenames[i++], "semiprimes_44bit.dat");		// 70
+	strcpy(filenames[i++], "semiprimes_46bit.dat");		// 70
+	strcpy(filenames[i++], "semiprimes_48bit.dat");		// 70
+	strcpy(filenames[i++], "semiprimes_50bit.dat");		// 70
+	strcpy(filenames[i++], "semiprimes_52bit.dat");		// 85
+	strcpy(filenames[i++], "semiprimes_54bit.dat");       // 85
+	strcpy(filenames[i++], "semiprimes_56bit.dat");		// 125
+	strcpy(filenames[i++], "semiprimes_58bit.dat");		// 125
+	strcpy(filenames[i++], "semiprimes_60bit.dat");		// 165
+	strcpy(filenames[i++], "semiprimes_62bit.dat");		// 165
+	strcpy(filenames[i++], "semiprimes_64bit.dat");		// 205
+	//strcpy(filenames[i++], "semiprimes_tlp_32x32x32.txt");
+	//strcpy(filenames[i++], "semiprimes_tlp_32x64.txt");
+	//strcpy(filenames[i++], "semiprimes_tlp_48x48.txt");
+    //strcpy(filenames[i++], "semiprimes_70bit.dat");
+	//strcpy(filenames[i++], "semiprimes_80bit.dat");
+	//strcpy(filenames[i++], "semiprimes_90bit.dat");
+	//strcpy(filenames[i++], "semiprimes_100bit.dat");
+	//strcpy(filenames[i++], "pseudoprimes_110bit.dat");
+	//strcpy(filenames[i++], "pseudoprimes_120bit.dat");
+	//strcpy(filenames[i++], "pseudoprimes_125bit.dat");
+	num_files = i;
+	num = 10000;
+
+	uint64_t lcg = 42;
+
+	
 
 	// tinyecm test
-	for (nf = 0; nf < 8; nf++)
+	for (nf = 0; nf < num_files; nf++)
+	//for (nf = 5; nf < 16; nf++)
 	{
 		mpz_t gmp_comp, gmp_f;
 		char buf[1024];
 		int curves;
 		int B1;
 		uint64_t known1, known2, known3;
-
-		switch (nf)
-		{
-		case 0:	
-		case 1:             // <= 40-bit
-		case 2:             
-            B1 = 70;        // tinyecm
-            //B1 = 47;        // uecm
-            curves = 16;
-            break;
-		case 3:             // 42-44 bit
-        case 4:  
-            B1 = 70;        // tinyecm
-            //B1 = 59;        // uecm
-            curves = 16;
-            break;
-        case 5:             // 46-50 bit
-        case 6:
-		case 7:				
-			B1 = 70;
-			curves = 24;
-			break;
-		case 8:				// 52 bit
-			B1 = 85;
-			curves = 24;
-			break;
-		case 9:				// 54-55 bit
-		case 10:				
-			B1 = 125;
-			curves = 24;
-			break;
-		case 11:				// 60 bit
-		case 12:
-			B1 = 165;
-			curves = 32;
-			break;
-		case 13:				// 63-64 bit
-			B1 = 205;
-			curves = 40;
-			break;
-		default:
-			B1 = 205;
-			curves = 24;
-			break;
-		}
 
 		in = fopen(filenames[nf], "r");
 		printf("testing file: %s\n", filenames[nf]);
@@ -957,15 +920,23 @@ tinyecm_marker:
 		correct = 0;
 		k = 0;
 
-		if (nf < 15)
+		if (nf < 17)
 		{
             totBits = 0;
             minBits = 999;
             maxBits = 0;
+			i = 0;
             while (!feof(in))
             {
                 fscanf(in, "%" PRIu64 ",%u,%u", comp + i, f1 + i, f2 + i);
                 mpz_set_ui(gmptmp, comp[i]);
+
+				// to scan in for 52-bit processing:
+				//fscanf(in, "%" PRIu64 ",%u,%u", comp + 2 * i, f1 + i, f2 + i);
+				//mpz_set_ui(gmptmp, comp[2*i]);
+				//comp[2 * i + 1] = comp[2 * i + 0] >> 52;
+				//comp[2 * i + 0] &= 0x000fffffffffffffull;
+
                 j = mpz_sizeinbase(gmptmp, 2);
                 totBits += j;
                 if ((uint32_t)j > maxBits)
@@ -981,46 +952,226 @@ tinyecm_marker:
             fclose(in);
 
 			num = 100000;
-			for (i = 0; i < num; i++)
+
+			if (1)
 			{
-				uint64_t outf;
-
-                outf = do_uecm(comp[i]);
-
-				if ((outf == f1[i]) ||
-					(outf == f2[i]))
+				for (i = 0; i < num; i++)
 				{
-					correct++;
+					uint64_t outf;
+
+					//mpz_set_ui(gmp_comp, comp[i]);
+					//getfactor_tecm(gmp_comp, gmp_f, 0, &lcg);
+					//getfactor_tecm_x8(gmp_comp, gmp_f, maxBits/2, &lcg);
+					//outf = mpz_get_ui(gmp_f);
+
+					//outf = getfactor_upm1(comp[i], 333);
+					//
+					//if ((outf == f1[i]) ||
+					//	(outf == f2[i]))
+					//{
+					//	correct++;
+					//}
+					//else
+					{
+						outf = getfactor_uecm(comp[i], 0, &lcg);
+						if ((outf == f1[i]) ||
+							(outf == f2[i]))
+						{
+							correct++;
+						}
+					}
+
 				}
 			}
+			else
+			{
+				uint64_t* outf = (uint64_t*)malloc(2000000 * sizeof(uint64_t));
+
+				i = 0;
+				for (i = 0; i < 10; i++)
+				{
+					int j;
+
+					//getfactor_uecm_x8_list(comp, outf, num, &lcg);
+					//
+					//for (j = 0; j < num; j++)
+					//{
+					//	if ((outf[j] == f1[j]) ||
+					//		(outf[j] == f2[j]))
+					//	{
+					//		correct++;
+					//	}
+					//}
+
+					// tecm stores 104-bit results contiguously in 2 adjacent qwords.
+					getfactor_tecm_x8_list(comp, outf, maxBits / 2, num, &lcg);
+					for (j = 0; j < num; j++)
+					{
+						if ((outf[j * 2 + 0] == f1[j]) ||
+							(outf[j * 2 + 0] == f2[j]))
+						{
+							correct++;
+						}
+						//else
+						//{
+						//	printf("reported factor %016lx is not a factor of %016lx%016lx\n",
+						//		outf[j * 2], comp[j * 2+ 1], comp[j * 2]);
+						//}
+					}
+
+				}
+
+				free(outf);
+			}
+
 
 			gettimeofday(&gstop, NULL);
 			t_time = ytools_difftime(&gstart, &gstop);
 
 			printf("microecm got %d of %d correct in %2.2f sec\n",
 				correct, num, t_time);
-			printf("percent correct = %.2f\n", 100.0*(double)correct / (double)num);
+			printf("percent correct = %.2f\n", 100.0 * (double)correct / (double)num);
 			printf("average time per input = %.2f ms\n", 1000 * t_time / (double)num);
+
+
 		}
 		else
 		{
 			
-			if ((nf == 15) || (nf == 16) || (nf == 17))
+			if ((strcmp(filenames[nf], "semiprimes_70bit.dat") == 0) ||
+				(strcmp(filenames[nf], "semiprimes_80bit.dat") == 0) ||
+				(strcmp(filenames[nf], "semiprimes_90bit.dat") == 0) ||
+				(strcmp(filenames[nf], "semiprimes_100bit.dat") == 0))
 			{
                 num = 10000;
+
+				if (0)
+				{
+					for (i = 0; i < num; i++)
+					{
+						int p;
+
+						fgets(buf, 1024, in);
+#ifdef _MSC_VER
+						gmp_sscanf(buf, "%Zd, %llu, %llu",
+							gmp_comp, &known1, &known2);
+#else
+						gmp_sscanf(buf, "%Zd, %" PRIu64 ", %" PRIu64 "",
+							gmp_comp, &known1, &known2);
+#endif
+
+
+						getfactor_tecm(gmp_comp, gmp_f, 0, &lcg);
+						uint64_t outf = mpz_get_ui(gmp_f);
+
+						if ((outf == known1) ||
+							(outf == known2))
+						{
+							correct++;
+						}
+					}
+				}
+				else if (1)
+				{
+					uint64_t* outf = (uint64_t*)malloc(2000000 * sizeof(uint64_t));
+					uint64_t* f64a = (uint64_t*)malloc(2000000 * sizeof(uint64_t));
+					uint64_t* f64b = (uint64_t*)malloc(2000000 * sizeof(uint64_t));
+					totBits = 0;
+					minBits = 999;
+					maxBits = 0;
+					for (i = 0; i < num; i++)
+					{
+						int p;
+
+						fgets(buf, 1024, in);
+#ifdef _MSC_VER
+						gmp_sscanf(buf, "%Zd, %llu, %llu",
+							gmp_comp, &known1, &known2);
+#else
+						gmp_sscanf(buf, "%Zd, %" PRIu64 ", %" PRIu64 "",
+							gmp_comp, &known1, &known2);
+#endif
+
+						j = mpz_sizeinbase(gmp_comp, 2);
+						totBits += j;
+						if ((uint32_t)j > maxBits)
+							maxBits = j;
+						if ((uint32_t)j < minBits && j != 0)
+							minBits = j;
+
+						uint64_t c0 = mpz_get_ui(gmp_comp);
+						mpz_tdiv_q_2exp(gmp_comp, gmp_comp, 64);
+						uint64_t c1 = mpz_get_ui(gmp_comp);
+
+						comp[2 * i + 1] = c0 >> 52;
+						comp[2 * i + 0] = c0 & 0x000fffffffffffffull;
+						comp[2 * i + 1] |= c1 << 12;
+
+						f64a[i] = known1;
+						f64b[i] = known2;
+					}
+
+					getfactor_tecm_x8_list(comp, outf, maxBits / 2, num, &lcg);
+					for (j = 0; j < num; j++)
+					{
+						if ((outf[j * 2 + 0] == f64a[j]) ||
+							(outf[j * 2 + 0] == f64b[j]))
+						{
+							correct++;
+						}
+					}
+				}
+				else
+				{
+					for (i = 0; i < num; i++)
+					{
+						int p;
+
+						fgets(buf, 1024, in);
+#ifdef _MSC_VER
+						gmp_sscanf(buf, "%Zd, %llu, %llu",
+							gmp_comp, &known1, &known2);
+#else
+						gmp_sscanf(buf, "%Zd, %" PRIu64 ", %" PRIu64 "",
+							gmp_comp, &known1, &known2);
+#endif
+
+
+						//gmp_printf("commencing test of n = %Zd\n", gmp_comp);
+						getfactor_tecm_x8(gmp_comp, gmp_f, mpz_sizeinbase(gmp_comp, 2) / 2, &lcg);
+						uint64_t outf = mpz_get_ui(gmp_f);
+
+						if ((outf == known1) ||
+							(outf == known2))
+						{
+							correct++;
+						}
+						else if (mpz_cmp_ui(gmp_f, 1) > 0)
+						{
+							gmp_printf("reported factor %Zd is not correct\n", gmp_f);
+						}
+					}
+				}
+
+			}
+
+#if 0
+			else if ((nf == 15) || (nf == 16) || (nf == 17))
+			{
+				num = 10000;
 				for (i = 0; i < num; i++)
 				{
 					int p;
 
 					fgets(buf, 1024, in);
 #ifdef _MSC_VER
-                    gmp_sscanf(buf, "%Zd, %llu, %llu, %llu",
-                        gmp_comp, &known1, &known2, &known3);
+					gmp_sscanf(buf, "%Zd, %llu, %llu, %llu",
+						gmp_comp, &known1, &known2, &known3);
 #else
-                    gmp_sscanf(buf, "%Zd, %" PRIu64 ", %" PRIu64 ", %" PRIu64 "",
-                        gmp_comp, &known1, &known2, &known3);
+					gmp_sscanf(buf, "%Zd, %" PRIu64 ", %" PRIu64 ", %" PRIu64 "",
+						gmp_comp, &known1, &known2, &known3);
 #endif
-					
+
 
 					tinyecm(gmp_comp, gmp_f, B1, 25 * B1, curves, &lcg_state, 0);
 					if ((mpz_cmp_ui(gmp_f, known1) == 0) ||
@@ -1034,20 +1185,20 @@ tinyecm_marker:
 			}
 			else if (nf > 17)
 			{
-                num = 10000;
+				num = 10000;
 				for (i = 0; i < num; i++)
 				{
 					int p;
 
 					fgets(buf, 1024, in);
 #ifdef _MSC_VER
-                    gmp_sscanf(buf, "%Zd, %llu, %llu",
-                        gmp_comp, &known1, &known2);
+					gmp_sscanf(buf, "%Zd, %llu, %llu",
+						gmp_comp, &known1, &known2);
 #else
-                    gmp_sscanf(buf, "%Zd, %" PRIu64 ", %" PRIu64 "",
-                        gmp_comp, &known1, &known2);
+					gmp_sscanf(buf, "%Zd, %" PRIu64 ", %" PRIu64 "",
+						gmp_comp, &known1, &known2);
 #endif
-					
+
 
 					tinyecm(gmp_comp, gmp_f, B1, 25 * B1, curves, &lcg_state, 0);
 					if ((mpz_cmp_ui(gmp_f, known1) == 0) ||
@@ -1055,31 +1206,31 @@ tinyecm_marker:
 					{
 						correct++;
 					}
-                    //else
-                    //{
-                    //    gmp_printf("found incorrect factor %Zd (known: %" PRIu64 ", %" PRIu64 "\n",
-                    //        gmp_f, known1, known2);
-                    //}
+					//else
+					//{
+					//    gmp_printf("found incorrect factor %Zd (known: %" PRIu64 ", %" PRIu64 "\n",
+					//        gmp_f, known1, known2);
+					//}
 				}
 
 			}
 			else
 			{
-                num = 100000;
+				num = 100000;
 				for (i = 0; i < num; i++)
 				{
 					int p;
 
 					fgets(buf, 1024, in);
 #ifdef _MSC_VER
-                    uint32_t k1, k2;
-                    gmp_sscanf(buf, "%Zd, %u, %u",
-                        gmp_comp, &k1, &k2);
-                    known1 = k1;
-                    known2 = k2;
+					uint32_t k1, k2;
+					gmp_sscanf(buf, "%Zd, %u, %u",
+						gmp_comp, &k1, &k2);
+					known1 = k1;
+					known2 = k2;
 #else
-                    gmp_sscanf(buf, "%Zd, %" PRIu64 ", %" PRIu64 "",
-                        gmp_comp, &known1, &known2);
+					gmp_sscanf(buf, "%Zd, %" PRIu64 ", %" PRIu64 "",
+						gmp_comp, &known1, &known2);
 #endif
 
 					tinyecm(gmp_comp, gmp_f, B1, 25 * B1, curves, &lcg_state, 0);
@@ -1090,6 +1241,7 @@ tinyecm_marker:
 					}
 				}
 			}
+#endif
 
 			fclose(in);
 

@@ -25,6 +25,7 @@ code to the public domain.
 #include <ecm.h>
 #include <signal.h>
 #include <time.h>
+#include <math.h>
 
 //local function declarations
 typedef struct {
@@ -261,6 +262,7 @@ int ecm_loop(fact_obj_t *fobj)
 	int i,j;
     double total_time = 0;
 	int num_batches;    
+    int run_avxecm = 0;
 
 	//maybe make this an input option: whether or not to stop after
 	//finding a factor in the middle of running a requested batch of curves
@@ -292,15 +294,30 @@ int ecm_loop(fact_obj_t *fobj)
 #if !defined(USE_AVX512F) || defined(__MINGW32__)
     if (1)
 #else
+    // run ecm curves using gmp-ecm, either the internal or external version,
+    // for at least stg1 and possibly stage 2 (unless prefer_avxecm_stg2 is specified), 
+    // in the following conditions
     if ((fobj->ecm_obj.prefer_gmpecm) || 
+        ((fobj->ecm_obj.use_gpuecm) && (fobj->ecm_obj.B1 > fobj->ecm_obj.ecm_ext_xover)) ||
         (fobj->ecm_obj.B1 > fobj->ecm_obj.ecm_ext_xover) ||
         (!fobj->HAS_AVX512F))
 #endif
     {
+        int bkupTHREADS;
+
         // initialize the flag to watch for interrupts, and set the
         // pointer to the function to call if we see a user interrupt
         ECM_ABORT = 0;
         signal(SIGINT, ecmexit);
+
+        // only one thread if using a gpu
+        if ((fobj->ecm_obj.use_gpuecm) && (fobj->THREADS > 1))
+        {
+            bkupTHREADS = fobj->THREADS;
+            fobj->THREADS = 1;
+            if (fobj->VFLAG >= 0)
+                printf("ecm: running single-threaded with GPU-ECM\n");
+        }
 
         //init ecm process
         ecm_process_init(fobj);
@@ -335,6 +352,11 @@ int ecm_loop(fact_obj_t *fobj)
         if (fobj->VFLAG >= 0)
             printf("\n");
 
+        if (fobj->ecm_obj.use_gpuecm)
+        {
+            fobj->THREADS = bkupTHREADS;
+        }
+
         if (fobj->LOGFLAG && (strcmp(fobj->flogname, "") != 0))
         {
             flog = fopen(fobj->flogname, "a");
@@ -368,6 +390,11 @@ int ecm_loop(fact_obj_t *fobj)
         ecm_process_free(fobj);
     }
     else
+    //{
+    //    run_avxecm = 1;
+    //}
+    //
+    //if (run_avxecm || fobj->ecm_obj.prefer_avxecm_stg2)
     {
         mpz_t F;
         int numfactors = 0;
@@ -383,6 +410,16 @@ int ecm_loop(fact_obj_t *fobj)
         else
         {
             B2 = fobj->ecm_obj.B2;
+        }
+
+        if (fobj->ecm_obj.prefer_avxecm_stg2)
+        {
+            // in order to do this we need:
+            // 1) set set B2=0 on gmpecm curves
+            // 2a) save the gmp-ecm stage1 curves
+            // 2b) read those curves
+            // 3) deal with all of the various possible parameterizations.  
+            // i.e., develop the ability to convert into avx-ecm's parameterization.
         }
 
         if (fobj->ecm_obj.prefer_gmpecm_stg2)
@@ -675,7 +712,10 @@ void ecm_process_init(fact_obj_t *fobj)
 		}
 		else
 		{
-			if ((fobj->ecm_obj.B1 < fobj->ecm_obj.ecm_ext_xover) || (fobj->ecm_obj.num_curves == 1))
+            // ok to use external, but for small B1 it's faster to use internal.
+            // unless using gpu, then we have to use the external version.
+			if ((fobj->ecm_obj.B1 < fobj->ecm_obj.ecm_ext_xover) || 
+                (fobj->ecm_obj.num_curves == 1)) // && (!fobj->ecm_obj.use_gpuecm))
 			{
                 if (ver >= 7.0)
                 {
@@ -691,7 +731,7 @@ void ecm_process_init(fact_obj_t *fobj)
 	}
 	else
 	{
-        if (fobj->ecm_obj.B1 < fobj->ecm_obj.ecm_ext_xover)
+        if ((fobj->ecm_obj.B1 < fobj->ecm_obj.ecm_ext_xover)) // && (!fobj->ecm_obj.use_gpuecm))
         {
             fobj->ecm_obj.use_external = 0;
         }
@@ -779,16 +819,6 @@ void *ecm_do_one_curve(void *ptr)
 		status = ecm_factor(thread_data->gmp_factor, thread_data->gmp_n,
 				fobj->ecm_obj.B1, thread_data->params);		
 
-		//printf ("used B2: ");
-		//mpz_out_str (stdout, 10, thread_data->params->B2);
-		//printf ("\n");
-
-		//NOTE: this required a modification to the GMP-ECM source code in ecm.c
-		//in order to get the automatically computed B2 value out of the
-		//library
-		//gmp2mp(thread_data->params->B2,&thread_data->factor);
-		//ECM_STG2_MAX = z264(&thread_data->factor);
-
 		//the return value is the stage the factor was found in, if no error
 		thread_data->stagefound = status;
 	}
@@ -838,12 +868,74 @@ void *ecm_do_one_curve(void *ptr)
         }
         else
         {
-            sprintf(cmd, "echo %s | %s -sigma %u %u > %s\n",
-                tmpstr, fobj->ecm_obj.ecm_path, thread_data->sigma, fobj->ecm_obj.B1,
-                thread_data->tmp_output);
+            if (fobj->ecm_obj.use_gpuecm)
+            {
+                char cgbn[32];
+                char gpucurves[32];
+                char gpudev[32];
+                char stg2[32];
+
+                if (fobj->ecm_obj.gpucurves > 0)
+                {
+                    sprintf(gpucurves, "-gpucurves %d", fobj->ecm_obj.gpucurves);
+                }
+                else
+                {
+                    strcpy(gpucurves, "");
+                }
+
+                if (fobj->ecm_obj.use_gpudev >= 0)
+                {
+                    sprintf(gpudev, "-gpudevice %d", fobj->ecm_obj.use_gpudev);
+                }
+                else
+                {
+                    strcpy(gpudev, "");
+                }
+
+                if (fobj->ecm_obj.use_cgbn > 0)
+                {
+                    sprintf(cgbn, "-cgbn");
+                }
+                else
+                {
+                    strcpy(cgbn, "");
+                }
+
+                if (fobj->ecm_obj.stg2_is_default)
+                {
+                    sprintf(stg2, "");
+                }
+                else
+                {
+                    sprintf(stg2, "%" PRIu64 "", fobj->ecm_obj.B2);
+                }
+
+                if (fobj->VFLAG >= 0)
+                {
+                    sprintf(cmd, "echo %s | %s -sigma 3:%u -gpu %s %s %s %u %s | tee %s\n",
+                        tmpstr, fobj->ecm_obj.ecm_path, thread_data->sigma,
+                        cgbn, gpudev, gpucurves, fobj->ecm_obj.B1, stg2, 
+                        thread_data->tmp_output);
+                }
+                else
+                {
+                    sprintf(cmd, "echo %s | %s -sigma 3:%u -gpu %s %s %s %u %s > %s\n",
+                        tmpstr, fobj->ecm_obj.ecm_path, thread_data->sigma,
+                        cgbn, gpudev, gpucurves, fobj->ecm_obj.B1, stg2,
+                        thread_data->tmp_output);
+                }
+            }
+            else
+            {
+                sprintf(cmd, "echo %s | %s -sigma %u %u > %s\n",
+                    tmpstr, fobj->ecm_obj.ecm_path, thread_data->sigma, fobj->ecm_obj.B1,
+                    thread_data->tmp_output);
+            }
         }
 
 		// run system command
+        //printf("ecm: syscmd is = %s", cmd);
 		retcode = system(cmd);
 
 		free(tmpstr);
@@ -862,6 +954,19 @@ void *ecm_do_one_curve(void *ptr)
 			fgets(line, 1024, fid);
 			if (line == NULL)
 				break;
+
+            if (fobj->ecm_obj.use_gpuecm)
+            {
+                ptr = strstr(line, "GPU: Block: ");
+                if (ptr != NULL)
+                {
+                    int curves;
+                    ptr = strstr(line, "(");
+                    sscanf(ptr+1, "%d", &curves);
+                    thread_data->curves_run += (curves - 1);
+                }
+
+            }
 
 			ptr = strstr(line, "**********");
 			if (ptr == NULL)
@@ -917,7 +1022,7 @@ void *ecm_do_one_curve(void *ptr)
 
     thread_data->curves_run++;
 
-	return 0;
+	return;
 }
 
 // function definitions

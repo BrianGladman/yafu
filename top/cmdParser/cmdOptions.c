@@ -40,6 +40,10 @@ SOFTWARE.
 #include <string.h>
 #include <inttypes.h>
 
+#ifdef __INTEL_LLVM_COMPILER
+#include <ctype.h>
+#endif
+
 // this function prints the help information specified by usageHelp
 // and OptionHelp.
 void printUsage(options_t* options);
@@ -72,7 +76,9 @@ char OptionArray[NUMOPTIONS][MAXOPTIONLEN] = {
     "snfs_xover", "soe_block", "forceTLP", "siqsLPB", "siqsMFBD",
     "siqsMFBT", "siqsBDiv", "siqsBT", "prefer_gmpecm", "saveB1",
     "siqsNobat", "inmem", "prefer_gmpecm_stg2", "vpp1_work_file", "vpm1_work_file",
-    "resume"};
+    "resume", "jsonpretty", "cadoMsieve", "cado_dir", "convert_poly_path",
+    "gpucurves", "cgbn", "use_gpuecm", "use_gpudev", "prefer_avxecm_stg2"
+    };
 
 // help strings displayed with -h
 // needs to be the same length as the above arrays, even if 
@@ -168,7 +174,17 @@ char OptionHelp[NUMOPTIONS][MAXHELPLEN] = {
     "                  : Use GMP-ECM for stage 2",
     "(String)          : Filename for vecP+1 work input", 
     "(String)          : Filename for vecP-1 work input",
-    "(String)          : Filename to resume parallel P+1 or P-1" };
+    "(String)          : Filename to resume parallel P+1 or P-1",
+    "                  : Output JSON info pretty printed (one pair per line) ",
+    "                  : cadoMsieve", 
+    "                  : cado_dir", 
+    "                  : convert_poly_path",
+    "(Integer < 32-bit): Number of gpu curves to run in a batch",
+    "                  : use cgbn with gpu-ecm (external ecm binary enabled with this option must exist)",
+    "                  : use gpu-ecm (external ecm binary enabled with this option must exist)",
+    "(Integer < 32-bit): gpu device number",
+    "                  : use AVX-ECM for stage 2"
+};
 
 // indication of whether or not an option needs a corresponding argument.
 // needs to be the same length as the above two arrays.
@@ -194,7 +210,9 @@ int needsArg[NUMOPTIONS] = {
     1,1,0,1,1,
     1,1,1,0,0,
     0,1,0,1,1,
-    1};
+    1,0,0,1,1,  // resume, json-pretty, new cado options
+    1,0,0,1,0   // gpucurves, cbgn, use gpu, gpu dev, prefer avxecm stg2
+};
 
 // command line option aliases, specified by '--'
 // need the same number of strings here, even if
@@ -217,7 +235,10 @@ char LongOptionAliases[NUMOPTIONS][MAXOPTIONLEN] = {
     "", "", "", "", "", 
     "", "", "", "", "", 
     "", "", "", "", "",
-    ""};
+    "", "", "", "", "",
+    "", "", "", "", "",
+    "", "", "", "", ""
+};
 
 
 
@@ -928,6 +949,7 @@ void applyOpt(char* opt, char* arg, options_t* options)
     {
         // argument "prefer_gmpecm_stg2"
         options->prefer_gmpecm_stg2 = 1;
+        options->prefer_avxecm_stg2 = 0;
     }
     else if (strcmp(opt, OptionArray[88]) == 0)
     {
@@ -951,6 +973,57 @@ void applyOpt(char* opt, char* arg, options_t* options)
             strcpy(options->resume_file, arg);
         else
             printf("*** argument to resume too long, ignoring ***\n");
+    }
+    else if (strcmp(opt, OptionArray[91]) == 0)
+    {
+        options->json_pretty = 1;
+    }
+    else if (strcmp(opt, OptionArray[92]) == 0)
+    {
+        // argument "cadoMsieve"
+        options->cadoMsieve = 1;
+    }
+    else if (strcmp(opt, OptionArray[93]) == 0)
+    {
+        // argument "cado_dir"
+        if (strlen(arg) < MAXARGLEN)
+            strcpy(options->cado_dir, arg);
+        else
+            printf("*** argument to cado_dir too long, ignoring ***\n");
+    }
+    else if (strcmp(opt, OptionArray[94]) == 0)
+    {
+        // argument "convert_poly_path"
+        if (strlen(arg) < MAXARGLEN)
+            strcpy(options->convert_poly_path, arg);
+        else
+            printf("*** argument to convert_poly_path too long, ignoring ***\n");
+    }
+    else if (strcmp(opt, OptionArray[95]) == 0)
+    {
+        // argument "gpucurves"
+        options->gpucurves = atoi(arg);
+    }
+    else if (strcmp(opt, OptionArray[96]) == 0)
+    {
+        // argument "use_cgbn"
+        options->use_cgbn = 1;
+    }
+    else if (strcmp(opt, OptionArray[97]) == 0)
+    {
+        // argument "use_gpuecm"
+        options->use_gpuecm = 1;
+    }
+    else if (strcmp(opt, OptionArray[98]) == 0)
+    {
+        // argument "use_gpudev"
+        options->use_gpudev = atoi(arg);
+    }
+    else if (strcmp(opt, OptionArray[99]) == 0)
+    {
+        // argument "prefer_avxecm_stg2"
+        options->prefer_avxecm_stg2 = 1;
+        options->prefer_gmpecm_stg2 = 0;
     }
     else
     {
@@ -1018,6 +1091,7 @@ options_t* initOpt(void)
     strcpy(options->expr, "");
     options->repeat = 0;
     options->no_clk_test = 1;
+    options->json_pretty = 0;
 
     // autofact options
     options->no_ecm = 0;
@@ -1121,6 +1195,7 @@ options_t* initOpt(void)
     options->saveB1 = 0;
     options->ext_ecm_xover = 48000;
 #endif
+    options->prefer_avxecm_stg2 = 0;
     options->B1pm1 = 100000;
     options->B1pp1 = 20000;
     options->B1ecm = 11000;
@@ -1136,8 +1211,6 @@ options_t* initOpt(void)
     // ========================================================================
     return options;
 }
-
-
 
 
 // ========================================================================
@@ -1375,7 +1448,8 @@ int readINI(const char* filename, options_t* options)
         return 0;
     }
 
-    str = (char*)malloc(1024 * sizeof(char));
+    str = (char*)calloc(1024, sizeof(char));
+    strcpy(str, "");
     while (fgets(str, 1024, doc) != NULL)
     {
         //if first character is a % sign, skip this line.
@@ -1387,16 +1461,17 @@ int readINI(const char* filename, options_t* options)
             continue;
 
         //if last character of line is newline, remove it
-        do
+        len = strlen(str); 
+        while (len > 0)
         {
-            len = strlen(str);
             if (str[len - 1] == 10)
                 str[len - 1] = '\0';
             else if (str[len - 1] == 13)
                 str[len - 1] = '\0';
             else
                 break;
-        } while (len > 0);
+            len = strlen(str);
+        }
 
         //if line is now blank, skip it.
         if (strlen(str) == 0)

@@ -27,6 +27,7 @@ of the authors and should not be interpreted as representing official policies,
 either expressed or implied, of the FreeBSD Project.
 */
 
+#include "yafu_ecm.h"
 #include "avx_ecm.h"
 #include "soe.h"
 #include "gmp.h"
@@ -313,9 +314,15 @@ void vec_ecm_main(fact_obj_t* fobj, uint32_t numcurves, uint64_t B1,
         forceNoMersenne = 1;
         size_n = mpz_sizeinbase(N, 2);
     }
-    else
+    else if (isMersenne != 0)
     {
         nwords = mmaxbits / DIGITBITS;
+        nblocks = nwords / BLOCKWORDS;
+    }
+    else
+    {
+        size_n = mpz_sizeinbase(N, 2);
+        nwords = maxbits / DIGITBITS;
         nblocks = nwords / BLOCKWORDS;
     }
 

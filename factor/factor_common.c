@@ -78,6 +78,11 @@ void init_factobj(fact_obj_t* fobj)
     fobj->ecm_obj.ecm_tune_freq = 0;
     fobj->ecm_obj.bail_on_factor = 1;
     fobj->ecm_obj.save_b1 = 0;
+    fobj->ecm_obj.use_cgbn = 0;
+    fobj->ecm_obj.gpucurves = 0;
+    fobj->ecm_obj.use_gpuecm = 0;
+    fobj->ecm_obj.use_gpudev = 0;
+
 
     // unlike ggnfs, ecm does not *require* external binaries.  
     // an empty string indicates the use of the built-in GMP-ECM hooks, while
@@ -87,11 +92,13 @@ void init_factobj(fact_obj_t* fobj)
     fobj->ecm_obj.use_external = 0;
 #ifdef USE_AVX512F
     fobj->ecm_obj.prefer_gmpecm = 0;
-    fobj->ecm_obj.ecm_ext_xover = 40000000;
+    fobj->ecm_obj.ecm_ext_xover = 300000000;
 #else
     fobj->ecm_obj.prefer_gmpecm = 1;
     fobj->ecm_obj.ecm_ext_xover = 48000;
 #endif
+    fobj->ecm_obj.prefer_gmpecm_stg2 = 0;
+    fobj->ecm_obj.prefer_avxecm_stg2 = 0;
 
     // initialize stuff for squfof
     fobj->squfof_obj.num_factors = 0;
@@ -164,10 +171,13 @@ void init_factobj(fact_obj_t* fobj)
     fobj->nfs_obj.polybatch = 250;						//default	
 #if defined(_WIN64)
     strcpy(fobj->nfs_obj.ggnfs_dir, ".\\");
+    strcpy(fobj->nfs_obj.cado_dir, ".\\");
 #elif defined(WIN32)
     strcpy(fobj->nfs_obj.ggnfs_dir, ".\\");
+    strcpy(fobj->nfs_obj.cado_dir, ".\\");
 #else
     strcpy(fobj->nfs_obj.ggnfs_dir, "./");
+    strcpy(fobj->nfs_obj.cado_dir, "./");
 #endif
 
     fobj->nfs_obj.poly_time = 0.0;
@@ -177,6 +187,8 @@ void init_factobj(fact_obj_t* fobj)
     fobj->nfs_obj.sqrt_time = 0.0;
     fobj->nfs_obj.ttime = 0.0;
 
+    fobj->nfs_obj.cadoMsieve = 0;
+    strcpy(fobj->nfs_obj.convert_poly_path, "");
 
     //initialize autofactor object
     //whether we want to output certain info to their own files...
@@ -199,6 +211,7 @@ void init_factobj(fact_obj_t* fobj)
     strcpy(fobj->autofact_obj.plan_str, "normal");
     fobj->autofact_obj.only_pretest = 0;
     fobj->autofact_obj.autofact_active = 0;
+    fobj->autofact_obj.json_pretty = 0;
 
     // if a number is <= aprcl_prove_cutoff, we will prove it prime or composite
     fobj->factors->aprcl_prove_cutoff = 500;
@@ -387,6 +400,10 @@ void copy_factobj(fact_obj_t* dest, fact_obj_t* src)
     dest->ecm_obj.ecm_tune_freq = src->ecm_obj.ecm_tune_freq;
     dest->ecm_obj.bail_on_factor = src->ecm_obj.bail_on_factor;
     dest->ecm_obj.save_b1 = src->ecm_obj.save_b1;
+    dest->ecm_obj.gpucurves = src->ecm_obj.gpucurves;
+    dest->ecm_obj.use_cgbn = src->ecm_obj.use_cgbn;
+    dest->ecm_obj.use_gpudev = src->ecm_obj.use_gpudev;
+    dest->ecm_obj.use_gpuecm = src->ecm_obj.use_gpuecm;
 
     // unlike ggnfs, ecm does not *require* external binaries.  
     // an empty string indicates the use of the built-in GMP-ECM hooks, while
@@ -477,13 +494,11 @@ void copy_factobj(fact_obj_t* dest, fact_obj_t* src)
     strcpy(dest->nfs_obj.filearg, src->nfs_obj.filearg);
 
     dest->nfs_obj.polybatch = src->nfs_obj.polybatch;
-#if defined(_WIN64)
     strcpy(dest->nfs_obj.ggnfs_dir, src->nfs_obj.ggnfs_dir);
-#elif defined(WIN32)
-    strcpy(dest->nfs_obj.ggnfs_dir, src->nfs_obj.ggnfs_dir);
-#else
-    strcpy(dest->nfs_obj.ggnfs_dir, src->nfs_obj.ggnfs_dir);
-#endif
+
+    dest->nfs_obj.cadoMsieve = src->nfs_obj.cadoMsieve;
+    strcpy(dest->nfs_obj.cado_dir, src->nfs_obj.cado_dir);
+    strcpy(dest->nfs_obj.convert_poly_path, src->nfs_obj.convert_poly_path);
 
     //initialize autofactor object
     //whether we want to output certain info to their own files...
@@ -525,6 +540,8 @@ void copy_factobj(fact_obj_t* dest, fact_obj_t* src)
     dest->HAS_BMI2 = src->HAS_BMI2;
     dest->HAS_AVX512F = src->HAS_AVX512F;
     dest->HAS_AVX512BW = src->HAS_AVX512BW;
+    dest->VFLAG = src->VFLAG;
+    dest->LATHREADS = src->LATHREADS;
 
     return;
 }
@@ -660,6 +677,7 @@ void clear_factor_list(yfactor_list_t * flist)
         flist->factors[i].count = 0;
         mpz_clear(flist->factors[i].factor);
     }
+    free(flist->factors);
     flist->num_factors = 0;
 
 	return;

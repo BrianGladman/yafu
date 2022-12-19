@@ -213,7 +213,7 @@ code to the public domain.
 #endif // USE_AVX2
 
 
-
+#ifdef USE_AVX2
 
 void med_sieveblock_32k_avx2(uint8_t* sieve, sieve_fb_compressed* fb, fb_list* full_fb,
     uint32_t start_prime, uint8_t s_init)
@@ -597,6 +597,8 @@ void med_sieveblock_32k_avx2(uint8_t* sieve, sieve_fb_compressed* fb, fb_list* f
 
 }
 
+#endif
+
 // intrinsics and sieve routines for processors with AVX512BW
 #ifdef USE_AVX512BW
 void med_sieveblock_32k_avx512bw(uint8_t* sieve, sieve_fb_compressed* fb, fb_list* full_fb,
@@ -781,7 +783,8 @@ void med_sieveblock_32k_avx512bw(uint8_t* sieve, sieve_fb_compressed* fb, fb_lis
         if (prime == 0)
             continue;
 
-        SIEVE_2X;
+        // medB can be greater than 32k, so can't do sieve2x
+        //SIEVE_2X;
         SIEVE_1X;
         SIEVE_LAST;
         UPDATE_ROOTS;

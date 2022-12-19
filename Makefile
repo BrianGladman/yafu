@@ -17,8 +17,8 @@
 #        				   --bbuhrow@gmail.com 7/28/09
 # ----------------------------------------------------------------------*/
 
-CC = gcc
-CFLAGS = -g -m64 -DUSE_SSE2
+CC = gcc-11.1.0
+CFLAGS = -g -m64 -std=gnu99 -DUSE_SSE2
 #CFLAGS += -march=core2 -mtune=core2
 WARN_FLAGS = -Wall # -Wconversion
 OPT_FLAGS = -O2
@@ -30,15 +30,15 @@ OBJ_EXT = .o
 
 # standard search directories for headers/libraries within yafu.
 # These should normally not be modified.
-INC = -I. -Iinclude -Itop/aprcl -Itop/cmdParser -Itop/ 
-LIBS = -L.
+INC = -I. -Iinclude -Itop/aprcl -Itop/cmdParser -Itop/ -Ifactor/gmp-ecm  
+LIBS = -L. 
 
 # we require additional search directories for msieve, zlib, gmp, gmp-ecm, 
 # ytools, and ysieve for libraries and headers.  By default, we look
 # adjacent to the yafu folder (i.e., ../ysieve, ../ytools, etc.).  Change
 # these if your installation locations differ.
 INC += -I../ysieve -I../ytools
-LIBS += -L../ysieve -L../ytools
+LIBS += -L../ysieve/ -L../ytools/
 
 INC += -I../gmp_install/gmp-6.2.0/include
 LIBS += -L../gmp_install/gmp-6.2.0/lib
@@ -62,20 +62,10 @@ endif
 # capability of the user's cpu.  In other words, sse4.1 capability is required on the
 # host cpu in order to compile the fat binary, but once it is compiled it should run
 # to the capability of the target user cpu.
-ifeq ($(ICELAKE),1)
-	CFLAGS += -DUSE_BMI2 -DUSE_AVX2 -DUSE_AVX512F -DUSE_AVX512BW -DSKYLAKEX -DIFMA -march=icelake-client
-	SKYLAKEX = 1
-else
 
-ifeq ($(SKYLAKEX),1)
-	CFLAGS += -DUSE_BMI2 -DUSE_AVX2 -DUSE_AVX512F -DUSE_AVX512BW -DSKYLAKEX -march=skylake-avx512 
-endif
-	
-endif
 
-ifeq ($(USE_BMI2),1)
-# -mbmi enables _blsr_u64 and -mbmi2 enables _pdep_u64 when using gcc
-  CFLAGS += -mbmi2 -mbmi -DUSE_BMI2
+ifeq ($(USE_SSE41),1)
+	CFLAGS += -DUSE_SSE41 -msse4.1
 endif
 
 ifeq ($(USE_AVX2),1)
@@ -90,8 +80,20 @@ endif
 
 endif
 
-ifeq ($(USE_SSE41),1)
-	CFLAGS += -DUSE_SSE41 -msse4.1
+ifeq ($(ICELAKE),1)
+	CFLAGS += -DUSE_BMI2 -DUSE_AVX2 -DUSE_AVX512F -DUSE_AVX512BW -DSKYLAKEX -DIFMA -march=icelake-client
+	SKYLAKEX = 1
+else
+
+ifeq ($(SKYLAKEX),1)
+	CFLAGS += -DUSE_BMI2 -DUSE_AVX2 -DUSE_AVX512F -DUSE_AVX512BW -DSKYLAKEX -march=skylake-avx512 
+endif
+	
+endif
+
+ifeq ($(USE_BMI2),1)
+# -mbmi enables _blsr_u64 and -mbmi2 enables _pdep_u64 when using gcc
+  CFLAGS += -mbmi2 -mbmi -DUSE_BMI2
 endif
 
 ifeq ($(KNL),1)
@@ -190,6 +192,7 @@ MSIEVE_SRCS = \
 
 MSIEVE_OBJS = $(MSIEVE_SRCS:.c=$(OBJ_EXT))
 
+
 #---------------------------YAFU file lists -------------------------
 YAFU_SRCS = \
 	top/driver.c \
@@ -208,6 +211,7 @@ COMMON_SRCS = \
 	arith/arith.c \
 	arith/monty.c \
 	factor/gmp-ecm/tinyecm.c \
+	factor/gmp-ecm/micropm1.c \
     factor/gmp-ecm/microecm.c
 	
 ECM_SRCS = \
@@ -313,7 +317,8 @@ COMMON_HEAD = include/gmp_xface.h \
 	include/factor.h
 	
 ECM_HEAD = include/yafu_ecm.h \
-	factor/avx-ecm/avx_ecm.h
+	factor/avx-ecm/avx_ecm.h \
+	factor/gmp-ecm/microecm.h
 
 SIQS_HEAD = include/qs.h  \
 	include/qs_impl.h \

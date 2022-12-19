@@ -34,6 +34,10 @@ code to the public domain.
 #include <io.h>
 #endif
 
+#ifdef __INTEL_LLVM_COMPILER
+#include <ctype.h>
+#endif
+
 #include "cmdOptions.h"
 
 // function to read the .ini file and populate options
@@ -125,6 +129,7 @@ int main(int argc, char *argv[])
     if (strlen(options->batchfile) > 0)
     {
         yafu_obj.USEBATCHFILE = 1;
+        strcpy(yafu_obj.batchfilename, options->batchfile);
     }
     if (options->rand_seed == 0)
     {
@@ -182,7 +187,7 @@ int main(int argc, char *argv[])
     fobj->THREADS = yafu_obj.THREADS;
     fobj->HAS_BMI2 = comp_info.BMI2;
 
-#if defined(__INTEL_COMPILER)
+#if defined(__INTEL_COMPILER) || defined(__INTEL_LLVM_COMPILER)
     if (_may_i_use_cpu_feature(_FEATURE_AVX512F))
 #elif defined(__GNUC__)
     if (__builtin_cpu_supports("avx512f"))
@@ -193,7 +198,7 @@ int main(int argc, char *argv[])
         fobj->HAS_AVX512F = comp_info.AVX512F;
     }
 
-#ifdef __INTEL_COMPILER
+#if defined( __INTEL_COMPILER) || defined(__INTEL_LLVM_COMPILER)
     if (_may_i_use_cpu_feature(_FEATURE_AVX512BW))
 #elif defined(__GNUC__)
     if (__builtin_cpu_supports("avx512bw"))
@@ -308,6 +313,8 @@ int main(int argc, char *argv[])
 	//g_rand.hi = 123;
 	//g_rand.low = 123;
     srand((unsigned int)options->rand_seed);
+
+    //test_dlp_composites();
 
 	// command line
 	while (1)
@@ -510,6 +517,12 @@ int main(int argc, char *argv[])
 	free(fobj);      
     sFree(&input_str);
     free(options->inputExpr);
+    for (i = 0; i < options->num_tune_info; i++)
+    {
+        free(options->tune_info[i]);
+    }
+    free(options->tune_info);
+    free(options);
     //soe_finalize(sdata);
     //free(sdata);
 
@@ -945,6 +958,9 @@ void print_splash(fact_obj_t *fobj, info_t *comp_info, int is_cmdline_run,
 #elif defined (__INTEL_COMPILER)
         printf("Built with Intel Compiler %d\n", __INTEL_COMPILER);
         logprint(logfile, "Built with Intel Compiler %d\n", __INTEL_COMPILER);
+#elif defined(__INTEL_LLVM_COMPILER)
+        printf("Built with Intel LLVM Compiler %s\n", __clang_version__);
+        logprint(logfile, "Built with Intel LLVM Compiler %s\n", __clang_version__);
 #elif defined (__GNUC__)
         printf("Built with GCC %d\n", __GNUC__);
         logprint(logfile, "Built with GCC %d\n", __GNUC__);
@@ -1068,7 +1084,7 @@ void yafu_init(yafu_obj_t* yobj)
     yobj->LATHREADS = 0;
     yobj->CMD_LINE_REPEAT = 0;
     yobj->MEAS_CPU_FREQUENCY = 0.0;
-
+    strcpy(yobj->batchfilename, "");
 	strcpy(yobj->sessionname,"session.log");
     strcpy(yobj->scriptname, "");
 
@@ -1103,7 +1119,7 @@ char * process_batchline(yafu_obj_t* yobj, char *input_exp, char *indup, int *co
 	//try to open the file
 	if (yobj->USEBATCHFILE == 2)
 		batchfile = stdin;
-	else
+	else if (yobj->USEBATCHFILE == 1)
 		batchfile = fopen(yobj->batchfilename,"r");
 
 	if (batchfile == NULL)
@@ -1125,11 +1141,16 @@ char * process_batchline(yafu_obj_t* yobj, char *input_exp, char *indup, int *co
 		while (1)
 		{
 			ptr = fgets(tmpline,GSTR_MAXSIZE,batchfile);
-			strcpy(line + strlen(line), tmpline);
-			
+            strcpy(line + strlen(line), tmpline);
+
 			// stop if we didn't read anything
 			if (feof(batchfile))
 			{
+                if (strlen(line) > 0)
+                {
+                    //printf("last line: %s\n", line);
+                    break;
+                }
 				printf("eof; done processing batchfile\n");
 				fclose(batchfile);
 				*code = 1;
@@ -1146,6 +1167,9 @@ char * process_batchline(yafu_obj_t* yobj, char *input_exp, char *indup, int *co
 				return input_exp;
 			}
 
+            //printf("line = %s\n", line);
+            //printf("last character is %02x\n", line[strlen(line) - 1]);
+
 			// if we got the end of the line, stop reading
 			if ((line[strlen(line)-1] == 0xa) ||
 				(line[strlen(line)-1] == 0xd))
@@ -1155,23 +1179,41 @@ char * process_batchline(yafu_obj_t* yobj, char *input_exp, char *indup, int *co
 			line = (char *)realloc(line, (strlen(line) + GSTR_MAXSIZE) * sizeof(char));
 		} 
 
-		// remove LF an CRs from line
+		// remove LF and CRs and other unprintable characters from line
 		nChars = 0;
 		for (j=0; j<strlen(line); j++)
 		{
-			switch (line[j])
-			{
-			case 13:
-			case 10:
-				break;
-			default:
-				line[nChars++] = line[j];
-				break;
-			}
+			//switch (line[j])
+			//{
+			//case 13:
+			//case 10:
+			//	break;
+			//default:
+			//	line[nChars++] = line[j];
+			//	break;
+			//}
+            if (line[j] > 31)
+                line[nChars++] = line[j];
 		}
 		line[nChars++] = '\0';
 
-	} while (strlen(line) == 0);	
+	} while ((strlen(line) == 0) && !(feof(batchfile)));
+
+    //printf("loop exit with line length %d. characters: ", strlen(line));
+    //for (i = 0; i < strlen(line); i++)
+    //{
+    //    printf("%02x ", line[i]);
+    //}
+    //printf("\n");
+
+    if (feof(batchfile) && (strlen(line) == 0))
+    {
+        printf("eof; done processing batchfile\n");
+        fclose(batchfile);
+        *code = 1;
+        free(line);
+        return input_exp;
+    }
 
 	// this only applies for non-stdin batchfiles
 	if (yobj->USEBATCHFILE == 1)
@@ -1409,6 +1451,10 @@ void options_to_factobj(fact_obj_t* fobj, options_t* options)
         fobj->ecm_obj.lcg_state[i] =
             hash64(lcg_rand_64(&fobj->lcg_state));
     }
+    fobj->ecm_obj.use_cgbn = options->use_cgbn;
+    fobj->ecm_obj.use_gpudev = options->use_gpudev;
+    fobj->ecm_obj.use_gpuecm = options->use_gpuecm;
+    fobj->ecm_obj.gpucurves = options->gpucurves;
 
     // unlike ggnfs, ecm does not *require* external binaries.  
     // an empty string indicates the use of the built-in GMP-ECM hooks, while
@@ -1608,6 +1654,10 @@ void options_to_factobj(fact_obj_t* fobj, options_t* options)
     fobj->nfs_obj.polybatch = options->poly_batch;
     strcpy(fobj->nfs_obj.ggnfs_dir, options->ggnfs_dir);
 
+    fobj->nfs_obj.cadoMsieve = options->cadoMsieve;
+    strcpy(fobj->nfs_obj.cado_dir, options->cado_dir);
+    strcpy(fobj->nfs_obj.convert_poly_path, options->convert_poly_path);
+
     // initialize autofactor object
     // whether we want to output certain info to their own files...
     fobj->autofact_obj.want_output_primes = 0;
@@ -1658,6 +1708,7 @@ void options_to_factobj(fact_obj_t* fobj, options_t* options)
         fobj->autofact_obj.yafu_pretest_plan = PRETEST_CUSTOM;
     fobj->autofact_obj.only_pretest = options->pretest;
     fobj->autofact_obj.autofact_active = 0;
+    fobj->autofact_obj.json_pretty = options->json_pretty;
 
     // if a number is <= aprcl_prove_cutoff, we will prove it prime or composite
     fobj->factors->aprcl_prove_cutoff = options->aprcl_p;
