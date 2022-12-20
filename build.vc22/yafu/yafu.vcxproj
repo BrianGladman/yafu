@@ -39,7 +39,6 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
     <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
@@ -188,7 +187,7 @@
     </Midl>
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
-      <AdditionalIncludeDirectories>..\..\..\ytools.git\trunk;..\..\..\ysieve.git\trunk\;..\..\..\msieve\zlib;..\..\top\cmdParser;..\..\top;..\..\include;..\..\top\aprcl;%(AdditionalIncludeDirectories);..\top\cmdParser</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\factor\gmp-ecm;..\..\..\ytools;..\..\..\ysieve;..\..\..\msieve\zlib;..\..\top\cmdParser;..\..\include;..\..\top\aprcl;..\..\top;..\top\cmdParser;..\..\..\mpir\lib\$(IntDir);..\..\..\gmp-ecm\</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>USE_AVX2;USE_BMI2;USE_AVX512BW;USE_AVX512F;USE_AVX512;SKYLAKEX;WIN32;_WIN64;_DEBUG;_CONSOLE;YAFU_32K;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>
@@ -244,22 +243,21 @@
       <StructMemberAlignment>Default</StructMemberAlignment>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <FunctionLevelLinking>true</FunctionLevelLinking>
-      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
-      <BrowseInformation>
-      </BrowseInformation>
       <WarningLevel>Level3</WarningLevel>
       <CallingConvention>Cdecl</CallingConvention>
       <CompileAs>CompileAsC</CompileAs>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>advapi32.lib;siqs.lib;factor_common.lib;ecm.lib;nfs.lib;..\..\..\msieve\lib\$(IntDir)gnfs.lib;..\..\..\msieve\lib\$(IntDir)common.lib;..\..\..\msieve\lib\$(IntDir)zlib.lib;..\..\..\ysieve\lib\$(IntDir)ysieve.lib;..\..\..\ytools\lib\$(IntDir)ytools.lib;..\..\..\mpir\lib\$(IntDir)mpir.lib;..\..\..\gmp-ecm\lib\$(IntDir)libecm.lib;..\..\..\pthreads\lib\$(IntDir)pthreads.lib</AdditionalDependencies>
+      <AdditionalDependencies>..\..\..\mpir\lib\$(IntDir)mpir.lib;..\..\lib\$(IntDir)siqs.lib;..\..\lib\$(IntDir)factor_common.lib;..\..\lib\$(IntDir)ecm.lib;..\..\lib\$(IntDir)nfs.lib;..\..\..\gmp-ecm\lib\$(IntDir)libecm.lib;..\..\..\msieve\lib\$(IntDir)gnfs.lib;..\..\..\msieve\lib\$(IntDir)common.lib;..\..\..\msieve\lib\$(IntDir)zlib.lib;..\..\..\ysieve\lib\$(IntDir)ysieve.lib;..\..\..\ytools\lib\$(IntDir)ytools.lib;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.0\lib\$(Platform)\cuda.lib;..\..\..\pthreads\lib\x64\Release\pthreads.lib;Advapi32.lib</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
       <OptimizeReferences>
       </OptimizeReferences>
@@ -267,13 +265,10 @@
       </EnableCOMDATFolding>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
       <TargetMachine>MachineX64</TargetMachine>
-      <AdditionalLibraryDirectories>..\$(IntDir);C:\Program Files\Microsoft SDKs\Windows\v7.1\Lib\x64</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <Bscmake>
-      <SuppressStartupBanner>true</SuppressStartupBanner>
-      <OutputFile>$(OutDir)$(ProjectName).bsc</OutputFile>
-    </Bscmake>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\factor\autofactor.c" />

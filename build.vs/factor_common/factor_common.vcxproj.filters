@@ -48,6 +48,9 @@
     <ClCompile Include="..\..\factor\gmp-ecm\tinyecm.c">
       <Filter>Source Files\small_factor</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\factor\gmp-ecm\micropm1.c">
+      <Filter>Source Files\small_factor</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\arith.h">
@@ -69,6 +72,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\top\aprcl\mpz_aprcl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\factor\gmp-ecm\microecm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

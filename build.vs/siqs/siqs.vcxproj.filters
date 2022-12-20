@@ -176,5 +176,8 @@
     <ClInclude Include="..\..\include\qs_impl.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\factor\gmp-ecm\microecm.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

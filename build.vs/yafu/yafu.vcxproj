@@ -39,6 +39,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
     <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -50,7 +51,6 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
     <Import Project="..\vsyasm.props" />
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.7.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -187,7 +187,7 @@
     </Midl>
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
-      <AdditionalIncludeDirectories>..\..\..\..\ytools.git\trunk;..\..\..\..\ysieve.git\trunk\;..\..\..\..\msieve\zlib;..\..\top\cmdParser;..\..\top;..\..\include;..\..\top\aprcl;%(AdditionalIncludeDirectories);..\top\cmdParser</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\factor\gmp-ecm;..\..\..\ytools;..\..\..\ysieve;..\..\..\msieve\zlib;..\..\top\cmdParser;..\..\include;..\..\top\aprcl;..\..\top;..\top\cmdParser;..\..\..\mpir\lib\$(IntDir);..\..\..\gmp-ecm\</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>USE_AVX2;USE_BMI2;USE_AVX512BW;USE_AVX512F;USE_AVX512;SKYLAKEX;WIN32;_WIN64;_DEBUG;_CONSOLE;YAFU_32K;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>
@@ -204,13 +204,12 @@
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>..\..\..\mpir\lib\$(IntDir)mpir.lib;..\..\lib\$(IntDir)siqs.lib;..\..\lib\$(IntDir)factor_common.lib;..\..\lib\$(IntDir)ecm.lib;..\..\lib\$(IntDir)nfs.lib;..\..\..\msieve\lib\$(IntDir)gnfs.lib;..\..\..\msieve\lib\$(IntDir)common.lib;..\..\..\msieve\lib\$(IntDir)zlib.lib;..\..\..\ysieve\lib\$(IntDir)ysieve.lib;..\..\..\ytools\lib\$(IntDir)ytools.lib</AdditionalDependencies>
+      <AdditionalDependencies>siqs.lib;factor_common.lib;ecm.lib;nfs.lib;..\..\..\..\msieve\lib\$(IntDir)gnfs.lib;..\..\..\..\msieve\lib\$(IntDir)common.lib;..\..\..\..\msieve\lib\$(IntDir)zlib.lib;..\..\..\..\ysieve.git\trunk\ysieve_lib\$(IntDir)ysieve_lib.lib;..\..\..\..\ytools.git\trunk\ytools\$(IntDir)ytools.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(TargetDir)$(TargetName).pdb</ProgramDatabaseFile>
       <SubSystem>Console</SubSystem>
       <TargetMachine>MachineX64</TargetMachine>
-      <AdditionalLibraryDirectories>
-      </AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\$(IntDir);C:\Program Files\Microsoft SDKs\Windows\v7.1\Lib\x64</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
     </Link>
     <Bscmake>
@@ -237,16 +236,15 @@
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
       <WholeProgramOptimization>false</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>..\..\..\ytools;..\..\..\ysieve;..\..\..\msieve\zlib;..\..\top\cmdParser;..\..\include;..\..\top\aprcl;..\..\top;%(AdditionalIncludeDirectories);..\top\cmdParser;..\..\..\mpir\lib\$(IntDir);..\..\..\gmp-ecm\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\factor\gmp-ecm;..\..\..\ytools;..\..\..\ysieve;..\..\..\msieve\zlib;..\..\top\cmdParser;..\..\include;..\..\top\aprcl;..\..\top;..\top\cmdParser;..\..\..\mpir\lib\$(IntDir);..\..\..\gmp-ecm\</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;USE_AVX2;USE_BMI2;USE_AVX512BW;USE_AVX512F;USE_AVX512;SKYLAKEX;USE_SSE41;WIN32;_WIN64;NDEBUG;_CONSOLE;YAFU_32K;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <StructMemberAlignment>Default</StructMemberAlignment>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
-      <BrowseInformation>
-      </BrowseInformation>
       <WarningLevel>Level3</WarningLevel>
       <CallingConvention>Cdecl</CallingConvention>
       <CompileAs>CompileAsC</CompileAs>
@@ -259,7 +257,7 @@
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>..\..\..\mpir\lib\$(IntDir)mpir.lib;..\..\lib\$(IntDir)siqs.lib;..\..\lib\$(IntDir)factor_common.lib;..\..\lib\$(IntDir)ecm.lib;..\..\lib\$(IntDir)nfs.lib;..\..\..\gmp-ecm\lib\$(IntDir)libecm.lib;..\..\..\msieve\lib\$(IntDir)gnfs.lib;..\..\..\msieve\lib\$(IntDir)common.lib;..\..\..\msieve\lib\$(IntDir)zlib.lib;..\..\..\ysieve\lib\$(IntDir)ysieve.lib;..\..\..\ytools\lib\$(IntDir)ytools.lib;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.7\lib\$(Platform)\cuda.lib;..\..\..\pthreads\lib\x64\Release\pthreads.lib;Advapi32.lib</AdditionalDependencies>
+      <AdditionalDependencies>..\..\..\mpir\lib\$(IntDir)mpir.lib;..\..\lib\$(IntDir)siqs.lib;..\..\lib\$(IntDir)factor_common.lib;..\..\lib\$(IntDir)ecm.lib;..\..\lib\$(IntDir)nfs.lib;..\..\..\gmp-ecm\lib\$(IntDir)libecm.lib;..\..\..\msieve\lib\$(IntDir)gnfs.lib;..\..\..\msieve\lib\$(IntDir)common.lib;..\..\..\msieve\lib\$(IntDir)zlib.lib;..\..\..\ysieve\lib\$(IntDir)ysieve.lib;..\..\..\ytools\lib\$(IntDir)ytools.lib;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.0\lib\$(Platform)\cuda.lib;..\..\..\pthreads\lib\x64\Release\pthreads.lib;Advapi32.lib</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
       <OptimizeReferences>
       </OptimizeReferences>
@@ -271,13 +269,6 @@
       </AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <Bscmake>
-      <SuppressStartupBanner>true</SuppressStartupBanner>
-      <OutputFile>$(OutDir)$(ProjectName).bsc</OutputFile>
-    </Bscmake>
-    <CudaCompile>
-      <Runtime>MT</Runtime>
-    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\factor\autofactor.c" />
@@ -296,6 +287,5 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="..\vsyasm.targets" />
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.7.targets" />
   </ImportGroup>
 </Project>
